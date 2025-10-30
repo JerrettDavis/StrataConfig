@@ -1,0 +1,55 @@
+@using StrataConfig.Web.Services
+
+<div class="scope-tree">
+    @if (Nodes.Count == 0)
+    {
+        <p class="empty">No scopes available.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (var node in Nodes)
+            {
+                @RenderNode(node)
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<ScopeNodeDto> Nodes { get; set; } = Array.Empty<ScopeNodeDto>();
+    [Parameter] public Guid? SelectedScopeId { get; set; }
+    [Parameter] public EventCallback<ScopeNodeDto> OnScopeSelected { get; set; }
+
+    private RenderFragment RenderNode(ScopeNodeDto node) => builder =>
+    {
+        var seq = 0;
+        builder.OpenElement(seq++, "li");
+
+        builder.OpenElement(seq++, "button");
+        builder.AddAttribute(seq++, "type", "button");
+        builder.AddAttribute(seq++, "class", $"scope-node {(SelectedScopeId == node.Id ? "selected" : string.Empty)}");
+        builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => SelectNodeAsync(node)));
+        builder.AddContent(seq++, node.Name);
+        builder.OpenElement(seq++, "span");
+        builder.AddAttribute(seq++, "class", "scope-kind");
+        builder.AddContent(seq++, node.Kind);
+        builder.CloseElement();
+        builder.CloseElement();
+
+        if (node.Children.Count > 0)
+        {
+            builder.OpenElement(seq++, "ul");
+            foreach (var child in node.Children)
+            {
+                builder.AddContent(seq++, RenderNode(child));
+            }
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+
+    private Task SelectNodeAsync(ScopeNodeDto node)
+        => OnScopeSelected.InvokeAsync(node);
+}

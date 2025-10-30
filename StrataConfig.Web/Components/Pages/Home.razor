@@ -1,0 +1,386 @@
+﻿@page "/"
+@using System.Linq
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using StrataConfig.Web.Components.Admin
+@using StrataConfig.Web.Services
+@inject ConfigApiClient Api
+
+<PageTitle>Configuration Explorer</PageTitle>
+
+<div class="admin-page">
+    <div class="sidebar">
+        <div class="panel-header">
+            <div class="panel-title">
+                <h2>Scope Tree</h2>
+                <span class="panel-subtitle">Select a scope to inspect layered configuration.</span>
+            </div>
+            <div class="quick-filters">
+                <button class="chip-button" type="button" @onclick="@(() => HandleQuickFilter(NorthwindFilter))">Northwind</button>
+                <button class="chip-button" type="button" @onclick="@(() => HandleQuickFilter(SiteFilter))">Site</button>
+                <button class="chip-button" type="button" @onclick="@ClearQuickFilter">Clear</button>
+            </div>
+        </div>
+        <ScopeTree Nodes="_filteredScopeTree" SelectedScopeId="_selectedScopeId" OnScopeSelected="HandleScopeSelected" />
+    </div>
+
+    <div class="content">
+        <div class="toolbar">
+            <div class="namespace-picker">
+                <label for="namespaceSelect">Namespace</label>
+                <select id="namespaceSelect" class="form-select" @onchange="HandleNamespaceChanged" value="@_selectedNamespace">
+                    @foreach (var ns in _namespaces)
+                    {
+                        <option value="@ns">@ns</option>
+                    }
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Tags</label>
+                <div class="chip-list">
+                    @foreach (var tag in _availableTags)
+                    {
+                        <button type="button" class="chip-button @( _activeTags.Contains(tag) ? "chip-active" : string.Empty)" @onclick="() => ToggleTag(tag)">@tag</button>
+                    }
+                </div>
+            </div>
+
+            <div class="context-chip">
+                <span>Environment:</span>
+                <strong>@_environment</strong>
+            </div>
+            @if (_selectedScope is not null)
+            {
+                <div class="context-chip scope-summary">
+                    <span>@_selectedScope.Kind</span>
+                    <strong>@_selectedScope.Name</strong>
+                </div>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_loadError))
+        {
+            <div class="alert alert-danger" role="alert">@_loadError</div>
+        }
+        else if (_isLoading)
+        {
+            <div class="loading">Loading configuration…</div>
+        }
+        else if (_documents is null)
+        {
+            <div class="empty-state">
+                <p>Select a scope to load configuration layers.</p>
+            </div>
+        }
+        else
+        {
+            <section class="layers">
+                <h3>Layered Documents</h3>
+                <p class="subtitle">Ordered by precedence; later layers override earlier ones.</p>
+                <div class="layer-grid">
+                    @foreach (var layer in _documents.Layers.OrderBy(l => l.PrecedenceOrder))
+                    {
+                        <div class="layer-card">
+                            <header>
+                                <span class="badge">Layer @layer.PrecedenceOrder</span>
+                                <strong>@layer.Scope.Name</strong>
+                                <small>@layer.Scope.Kind</small>
+                            </header>
+                            @if (layer.Documents.Count == 0)
+                            {
+                                <p class="muted">No documents for this layer.</p>
+                            }
+                            else
+                            {
+                                @foreach (var doc in layer.Documents)
+                                {
+                                    <article class="document">
+                                        <div class="document-meta">
+                                            <span class="template">@doc.TemplateRef</span>
+                                            <span class="version">v@doc.Version</span>
+                                        </div>
+                                        <pre>@FormatJson(doc.Content)</pre>
+                                        <footer>
+                                            <span>Updated @doc.UpdatedUtc.ToLocalTime():g by @doc.UpdatedBy</span>
+                                        </footer>
+                                    </article>
+                                }
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="resolved">
+                <div class="resolved-header">
+                    <div>
+                        <h3>Resolved Configuration</h3>
+                        <p class="subtitle">Flattened key/value view produced by the merge engine.</p>
+                    </div>
+                    <div class="resolved-filter">
+                        <input type="search" class="form-control" placeholder="Filter keys..." @oninput="HandleSearchChanged" />
+                    </div>
+                </div>
+                @if (!_resolvedItems.Any())
+                {
+                    <p class="muted">No configuration matched the current filters.</p>
+                }
+                else
+                {
+                    <div class="resolved-grid">
+                        @foreach (var entry in _resolvedItems)
+                        {
+                            <div class="kv-card">
+                                <span class="kv-key">@entry.Key</span>
+                                <span class="kv-value">@entry.Value</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly Dictionary<string, string> DimensionKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["org"] = "org",
+        ["site"] = "site",
+        ["division"] = "division",
+        ["device"] = "device",
+        ["user"] = "user"
+    };
+
+    private const string NorthwindFilter = "northwind";
+    private const string SiteFilter = "site";
+
+    private readonly Dictionary<Guid, ScopeNodeDto> _scopeIndex = new();
+    private IReadOnlyList<ScopeNodeDto> _scopeTree = Array.Empty<ScopeNodeDto>();
+    private IReadOnlyList<ScopeNodeDto> _filteredScopeTree = Array.Empty<ScopeNodeDto>();
+    private IReadOnlyList<string> _namespaces = Array.Empty<string>();
+    private readonly HashSet<string> _activeTags = new(StringComparer.OrdinalIgnoreCase);
+    private readonly string[] _availableTags = ["beta", "canary", "vip"];
+    private string _searchTerm = string.Empty;
+    private NamespaceDocumentsDto? _documents;
+    private IDictionary<string, string> _resolved = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    private Guid? _selectedScopeId;
+    private ScopeNodeDto? _selectedScope;
+    private string _environment = "Development";
+    private string _appName = "Strata.Admin";
+    private string? _selectedNamespace;
+    private bool _isLoading;
+    private string? _loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInitialDataAsync();
+    }
+
+    private async Task LoadInitialDataAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _loadError = null;
+
+            _namespaces = await Api.GetNamespacesAsync();
+            if (_namespaces.Count == 0)
+            {
+                _namespaces = new List<string> { "ui" };
+            }
+
+            _selectedNamespace = _namespaces.First();
+
+            _scopeTree = await Api.GetScopeTreeAsync();
+            IndexScopeTree(_scopeTree);
+            _selectedScope = _scopeTree.FirstOrDefault();
+            _selectedScopeId = _selectedScope?.Id;
+            _filteredScopeTree = _scopeTree;
+
+            if (_selectedScope is not null)
+            {
+                await RefreshDocumentsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void IndexScopeTree(IEnumerable<ScopeNodeDto> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            _scopeIndex[node.Id] = node;
+            if (node.Children.Count > 0)
+            {
+                IndexScopeTree(node.Children);
+            }
+        }
+    }
+
+    private async Task HandleScopeSelected(ScopeNodeDto node)
+    {
+        _selectedScopeId = node.Id;
+        _selectedScope = node;
+        await RefreshDocumentsAsync();
+    }
+
+    private async Task HandleNamespaceChanged(ChangeEventArgs args)
+    {
+        var ns = args.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(ns))
+        {
+            return;
+        }
+
+        _selectedNamespace = ns;
+        await RefreshDocumentsAsync();
+    }
+
+    private void HandleQuickFilter(string? filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            _filteredScopeTree = _scopeTree;
+        }
+        else
+        {
+            _filteredScopeTree = FilterTree(_scopeTree, filter);
+        }
+
+        StateHasChanged();
+    }
+
+    private void ClearQuickFilter() => HandleQuickFilter(null);
+
+    private void HandleSearchChanged(ChangeEventArgs args)
+    {
+        _searchTerm = args.Value?.ToString() ?? string.Empty;
+        RefreshResolvedView();
+        StateHasChanged();
+    }
+
+    private void ToggleTag(string tag)
+    {
+        if (!_activeTags.Add(tag))
+        {
+            _activeTags.Remove(tag);
+        }
+
+        RefreshResolvedView();
+        StateHasChanged();
+    }
+
+    private IReadOnlyList<ScopeNodeDto> FilterTree(IReadOnlyList<ScopeNodeDto> nodes, string filter)
+    {
+        var matches = new List<ScopeNodeDto>();
+        foreach (var node in nodes)
+        {
+            var childMatches = FilterTree(node.Children, filter);
+            if (node.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) || childMatches.Count > 0)
+            {
+                matches.Add(node with { Children = childMatches });
+            }
+        }
+
+        return matches;
+    }
+
+    private async Task RefreshDocumentsAsync()
+    {
+        if (_selectedScope is null || string.IsNullOrWhiteSpace(_selectedNamespace))
+        {
+            return;
+        }
+
+        try
+        {
+            _isLoading = true;
+            _loadError = null;
+            StateHasChanged();
+
+            var dimensions = BuildDimensions(_selectedScope);
+            var documents = await Api.GetNamespaceDocumentsAsync(
+                _selectedNamespace!,
+                dimensions,
+                _environment,
+                _appName);
+            _documents = documents;
+
+            var resolveContext = new ResolveScopeContext(
+                _environment,
+                _appName,
+                null,
+                new Dictionary<string, string>(dimensions, StringComparer.OrdinalIgnoreCase),
+                Array.Empty<string>());
+            _resolved = await Api.ResolveAsync(_selectedNamespace!, resolveContext);
+            RefreshResolvedView();
+        }
+        catch (Exception ex)
+        {
+            _loadError = ex.Message;
+            _resolvedItems.Clear();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private Dictionary<string, string> BuildDimensions(ScopeNodeDto node)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var current = node;
+        while (current is not null)
+        {
+            if (DimensionKeys.TryGetValue(current.Kind, out var dimKey))
+            {
+                result[dimKey] = ExtractKeyValue(current.Key);
+            }
+
+            current = current.ParentId.HasValue &&
+                      _scopeIndex.TryGetValue(current.ParentId.Value, out var parent)
+                ? parent
+                : null;
+        }
+
+        return result;
+    }
+
+    private static string ExtractKeyValue(string key)
+    {
+        var separatorIndex = key.IndexOf(':');
+        return separatorIndex > 0 && separatorIndex < key.Length - 1
+            ? key[(separatorIndex + 1)..]
+            : key;
+    }
+
+    private static string FormatJson(JsonNode node)
+    {
+        return node.ToJsonString(new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+    }
+
+    private readonly List<KeyValuePair<string, string>> _resolvedItems = new();
+
+    private void RefreshResolvedView()
+    {
+        _resolvedItems.Clear();
+        _resolvedItems.AddRange(
+            _resolved
+                .Where(kvp => string.IsNullOrWhiteSpace(_searchTerm) || kvp.Key.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
+                .Where(kvp => _activeTags.Count == 0 || _activeTags.Any(tag => kvp.Key.Contains(tag, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase));
+    }
+}

@@ -1,0 +1,54 @@
+.scope-tree {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 10px 30px rgba(10, 20, 60, 0.05);
+}
+
+.scope-tree ul {
+    list-style: none;
+    padding-left: 1rem;
+    margin: 0;
+}
+
+.scope-tree li {
+    margin-bottom: 0.35rem;
+}
+
+.scope-node {
+    width: 100%;
+    text-align: left;
+    background: #f1f4ff;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: center;
+    color: #233a69;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.scope-node:hover {
+    border-color: #3b5bdb;
+    background: #e4ebff;
+}
+
+.scope-node.selected {
+    background: #3b5bdb;
+    color: #fff;
+}
+
+.scope-node .scope-kind {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.7;
+}
+
+.empty {
+    color: #5c6f8c;
+    font-size: 0.9rem;
+}

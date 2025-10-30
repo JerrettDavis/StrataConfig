@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <Sdk Name="Aspire.AppHost.Sdk" Version="9.5.2"/>
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <UserSecretsId>49e9f877-ffd3-4573-b259-c0a6713cb852</UserSecretsId>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\StrataConfig.ApiService\StrataConfig.ApiService.csproj"/>
+        <ProjectReference Include="..\StrataConfig.Web\StrataConfig.Web.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Aspire.Hosting.AppHost"/>
+        <PackageReference Include="Aspire.Hosting.Redis"/>
+        <PackageReference Include="PatternKit.Core" />
+    </ItemGroup>
+
+</Project>

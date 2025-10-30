@@ -1,0 +1,65 @@
+.admin-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #f5f7fb;
+}
+
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 2rem;
+    background: radial-gradient(circle at 0% 0%, #1b3a8f 0%, #041539 60%);
+    color: #fff;
+}
+
+.admin-header a {
+    color: #d2ddff;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.admin-header a:hover {
+    text-decoration: underline;
+}
+
+.brand {
+    display: flex;
+    flex-direction: column;
+}
+
+.brand-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.brand-subtitle {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.admin-body {
+    flex: 1;
+    padding: 1.5rem 2rem;
+}
+
+#blazor-error-ui {
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }

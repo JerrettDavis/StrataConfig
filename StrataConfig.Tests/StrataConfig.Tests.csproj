@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+
+    <ItemGroup>
+        <PackageReference Include="Aspire.Hosting.Testing"/>
+        <PackageReference Include="coverlet.collector">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk"/>
+        <PackageReference Include="PatternKit.Core" />
+        <PackageReference Include="TinyBDD" />
+        <PackageReference Include="TinyBDD.Xunit" />
+        <PackageReference Include="xunit" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\StrataConfig.AppHost\StrataConfig.AppHost.csproj"/>
+        <ProjectReference Include="..\StrataConfig.ApiService\StrataConfig.ApiService.csproj" />
+        <ProjectReference Include="..\StrataConfig.Core\StrataConfig.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="System.Net"/>
+        <Using Include="Microsoft.Extensions.DependencyInjection"/>
+        <Using Include="Aspire.Hosting.ApplicationModel"/>
+        <Using Include="Aspire.Hosting.Testing"/>
+        <Using Include="Xunit"/>
+    </ItemGroup>
+
+</Project>
