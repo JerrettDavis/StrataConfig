@@ -1,10 +1,11 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace StrataConfig.Web.Services;
 
-public sealed class ConfigApiClient
+public sealed class ConfigApiClient : IConfigApiClient
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -87,5 +88,82 @@ public sealed class ConfigApiClient
             SerializerOptions,
             cancellationToken);
         return resolved ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<IReadOnlyList<ConfigDocumentDto>> ListDocumentsAsync(string ns, Guid? scopeId, CancellationToken cancellationToken = default)
+    {
+        var query = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ns"] = ns,
+            ["scopeId"] = scopeId?.ToString()
+        };
+        var uri = QueryHelpers.AddQueryString("/api/documents", query);
+        var items = await _httpClient.GetFromJsonAsync<List<ConfigDocumentDto>>(uri, SerializerOptions, cancellationToken);
+        return items ?? new List<ConfigDocumentDto>();
+    }
+
+    public async Task<ConfigDocumentDto?> GetDocumentAsync(Guid id, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<ConfigDocumentDto>($"/api/documents/{id}", SerializerOptions, cancellationToken);
+
+    public async Task<ConfigDocumentDto> UpsertDocumentAsync(Guid? id, Guid scopeId, string ns, string templateRef, JsonNode content, string updatedBy, CancellationToken cancellationToken = default)
+    {
+        var payload = new
+        {
+            Id = id,
+            ScopeId = scopeId,
+            Namespace = ns,
+            TemplateRef = templateRef,
+            Content = content,
+            UpdatedBy = updatedBy
+        };
+        var response = await _httpClient.PostAsJsonAsync("/api/documents", payload, SerializerOptions, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var saved = await response.Content.ReadFromJsonAsync<ConfigDocumentDto>(SerializerOptions, cancellationToken);
+        return saved!;
+    }
+
+    public async Task<bool> DeleteDocumentAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"/api/documents/{id}", cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<ConfigDocumentDto> CloneDocumentAsync(Guid sourceId, Guid destinationScopeId, string updatedBy, CancellationToken cancellationToken = default)
+    {
+        var payload = new CloneDocumentRequestDto(sourceId, destinationScopeId, updatedBy);
+        var response = await _httpClient.PostAsJsonAsync("/api/documents/clone", payload, SerializerOptions, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ConfigDocumentDto>(SerializerOptions, cancellationToken))!;
+    }
+
+    public async Task<IReadOnlyList<ConfigDocumentDto>> ExportAsync(string ns, Guid? scopeId, CancellationToken cancellationToken = default)
+    {
+        var query = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["scopeId"] = scopeId?.ToString()
+        };
+        var uri = QueryHelpers.AddQueryString($"/api/namespaces/{ns}/export", query);
+        var items = await _httpClient.GetFromJsonAsync<List<ConfigDocumentDto>>(uri, SerializerOptions, cancellationToken);
+        return items ?? new List<ConfigDocumentDto>();
+    }
+
+    public async Task<IReadOnlyList<ConfigDocumentDto>> ImportAsync(string ns, IReadOnlyList<ImportDocumentRequestDto> documents, CancellationToken cancellationToken = default)
+    {
+        var payload = new ImportRequestDto(ns, documents);
+        var response = await _httpClient.PostAsJsonAsync($"/api/namespaces/{ns}/import", payload, SerializerOptions, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<List<ConfigDocumentDto>>(SerializerOptions, cancellationToken)) ?? new List<ConfigDocumentDto>();
+    }
+
+    public async Task<DiffResponseDto?> DiffAsync(JsonNode? aContent, Guid? aId, JsonNode? bContent, Guid? bId, CancellationToken cancellationToken = default)
+    {
+        var payload = new
+        {
+            A = new { Id = aId, Content = aContent },
+            B = new { Id = bId, Content = bContent }
+        };
+        var response = await _httpClient.PostAsJsonAsync("/api/documents/diff", payload, SerializerOptions, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<DiffResponseDto>(SerializerOptions, cancellationToken);
     }
 }

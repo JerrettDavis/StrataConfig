@@ -27,6 +27,7 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
 
     private sealed record TemplatesResult(ApiContext Context, IReadOnlyList<TemplateContract> Templates);
     private sealed record NamespaceResult(ApiContext Context, NamespaceDocumentsContract Documents, IDictionary<string, string> Resolved);
+    private sealed record ObservabilityResult(ApiContext Context, NamespaceDocumentsContract Documents, IDictionary<string, string> Resolved);
     private sealed record TemplateNotFoundResult(ApiContext Context, HttpResponseMessage Response);
     private sealed record ScopesResult(ApiContext Context, IReadOnlyList<ScopeNodeContract> Tree, ScopeNodeContract Target, ScopeNodeContract? ScopeById);
     private sealed record UpsertResult(ApiContext Context, HttpResponseMessage Response);
@@ -48,9 +49,19 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
     public Task NamespaceDocuments_ReturnLayers()
         => Given("API context", CreateApiContext)
            .When("fetching namespace documents", FetchNamespace)
-           .Then("layers ordered", r => r.Documents.Layers.Select(l => l.Scope.Kind).SequenceEqual(new[] { "global", "org", "site", "app", "environment" }))
+           .Then("layers ordered", r => r.Documents.Layers.Select(l => l.Scope.Kind).SequenceEqual(new[] { "global", "division", "org", "site", "app", "environment" }))
            .And("site layer flips welcome flag", r => r.Documents.Layers.Single(l => l.Scope.Kind == "site").Documents.First().Content["featureFlags"]! ["welcome"]!.GetValue<bool>() == false)
            .And("resolve output honors overrides", r => r.Resolved["featureFlags.welcome"] == "true")
+           .And("dispose factory", r => { r.Context.Dispose(); return true; })
+           .AssertPassed();
+
+    [Scenario("Observability namespace surfaces device layers and production overrides")]
+    [Fact]
+    public Task Observability_ReturnsDeviceLayer()
+        => Given("API context", CreateApiContext)
+           .When("fetching observability dataset", FetchObservability)
+           .Then("device layer present", r => r.Documents.Layers.Select(l => l.Scope.Kind).Contains("device"))
+           .And("resolve escalates conveyor severity", r => r.Resolved["alerts.conveyor.severity"] == "critical")
            .And("dispose factory", r => { r.Context.Dispose(); return true; })
            .AssertPassed();
 
@@ -88,7 +99,7 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
         => Given("API context", CreateApiContext)
            .When("posting valid document", PostDocumentSuccess)
            .Then("status is 201", r => r.Response.StatusCode == HttpStatusCode.Created)
-           .And("resolve picks up override", r => r.Resolved["theme.secondary"] == "#abcdef")
+           .And("resolve picks up override", r => r.Resolved["theme.font"] == "Test Sans")
            .And("dispose", r => { r.Context.Dispose(); return true; })
            .AssertPassed();
 
@@ -151,6 +162,44 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
         return new NamespaceResult(context, doc, resolved);
     }
 
+    private static ObservabilityResult FetchObservability(ApiContext context)
+    {
+        var query = new Dictionary<string, string?>
+        {
+            ["environment"] = "Production",
+            ["app"] = "Strata.Admin",
+            ["org"] = "fabrikam",
+            ["site"] = "berlin-fulfillment",
+            ["device"] = "line-ber-robot"
+        };
+
+        var doc = context.Client.GetFromJsonAsync<NamespaceDocumentsContract>(
+            QueryHelpers.AddQueryString("/api/namespaces/observability/documents", query),
+            SerializerOptions,
+            CancellationToken.None).GetAwaiter().GetResult()!;
+
+        var resolvePayload = new ResolveRequestContract(
+            new ResolveScopeContextContract(
+                Environment: "Production",
+                AppName: "Strata.Admin",
+                AppVersion: null,
+                Dimensions: new Dictionary<string, string>
+                {
+                    ["org"] = "fabrikam",
+                    ["site"] = "berlin-fulfillment",
+                    ["device"] = "line-ber-robot"
+                },
+                Tags: Array.Empty<string>()),
+            Namespace: "observability");
+
+        var resolveResponse = context.Client.PostAsJsonAsync("/api/config/resolve", resolvePayload, SerializerOptions).GetAwaiter().GetResult();
+        resolveResponse.EnsureSuccessStatusCode();
+        var resolved = resolveResponse.Content.ReadFromJsonAsync<Dictionary<string, string>>(SerializerOptions).GetAwaiter().GetResult()
+                        ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        return new ObservabilityResult(context, doc, resolved);
+    }
+
     private static TemplateNotFoundResult FetchMissingTemplate(ApiContext context)
     {
         var response = context.Client.GetAsync("/api/templates/missing-template").GetAwaiter().GetResult();
@@ -188,7 +237,7 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
     private static DocumentSuccessResult PostDocumentSuccess(ApiContext context)
     {
         var scopeId = Guid.Parse("00000000-0000-0000-0000-000000000010");
-        var payload = new UpsertDocumentContract(null, scopeId, "ui", "ui.theme", JsonNode.Parse("{ \"theme\": { \"primary\": \"#ff4081\", \"secondary\": \"#abcdef\" } }")!, "tests");
+        var payload = new UpsertDocumentContract(null, scopeId, "ui", "ui.theme", JsonNode.Parse("{ \"theme\": { \"primary\": \"#ff4081\", \"font\": \"Test Sans\" } }")!, "tests");
         var response = context.Client.PostAsJsonAsync("/api/documents", payload, SerializerOptions).GetAwaiter().GetResult();
         response.EnsureSuccessStatusCode();
 

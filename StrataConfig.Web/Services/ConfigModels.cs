@@ -46,3 +46,20 @@ public sealed record ResolveScopeContext(
 public sealed record ResolveRequestDto(
     ResolveScopeContext Scope,
     string Namespace);
+
+public sealed record DiffChangedEntryDto(string Key, string? From, string? To);
+public sealed record DiffResponseDto(
+    IReadOnlyList<string> Added,
+    IReadOnlyList<string> Removed,
+    IReadOnlyList<DiffChangedEntryDto> Changed);
+
+public sealed record CloneDocumentRequestDto(Guid SourceId, Guid DestinationScopeId, string? UpdatedBy);
+
+public sealed record ImportDocumentRequestDto(
+    Guid? Id,
+    Guid ScopeId,
+    string TemplateRef,
+    JsonNode Content,
+    string? UpdatedBy);
+
+public sealed record ImportRequestDto(string Namespace, IReadOnlyList<ImportDocumentRequestDto> Documents);

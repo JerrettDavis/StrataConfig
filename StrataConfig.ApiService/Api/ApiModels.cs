@@ -38,6 +38,40 @@ public sealed record NamespaceDocumentsResponse(
     long Revision,
     IReadOnlyList<ConfigLayerResponse> Layers);
 
+public sealed record DocumentRefRequest(
+    Guid? Id,
+    JsonNode? Content);
+
+public sealed record DiffRequest(
+    DocumentRefRequest A,
+    DocumentRefRequest B);
+
+public sealed record DiffChangedEntry(
+    string Key,
+    string? From,
+    string? To);
+
+public sealed record DiffResponse(
+    IReadOnlyList<string> Added,
+    IReadOnlyList<string> Removed,
+    IReadOnlyList<DiffChangedEntry> Changed);
+
+public sealed record CloneDocumentRequest(
+    Guid SourceId,
+    Guid DestinationScopeId,
+    string? UpdatedBy);
+
+public sealed record ImportDocumentRequest(
+    Guid? Id,
+    Guid ScopeId,
+    string TemplateRef,
+    JsonNode Content,
+    string? UpdatedBy);
+
+public sealed record ImportRequest(
+    string Namespace,
+    IReadOnlyList<ImportDocumentRequest> Documents);
+
 internal static class ApiModelMapper
 {
     public static TemplateResponse ToResponse(this Template template)

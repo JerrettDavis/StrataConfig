@@ -120,8 +120,8 @@ public static class ScopePrecedence
     private static readonly string[] OrderedKinds =
     [
         "global",
-        "org",
         "division",
+        "org",
         "site",
         "device",
         "user",

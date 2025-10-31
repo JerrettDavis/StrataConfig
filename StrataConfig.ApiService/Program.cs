@@ -239,6 +239,135 @@ app.MapPost("/api/documents", async (
     .WithDescription("Validates content against the template then writes it into the in-memory store.")
     .WithTags("Documents");
 
+// Documents: get by id
+app.MapGet("/api/documents/{id:guid}", async (
+        Guid id,
+        IConfigStore store,
+        CancellationToken ct) =>
+    {
+        var doc = await store.GetDocumentAsync(id, ct);
+        return doc is null ? Results.NotFound() : Results.Ok(doc.ToResponse());
+    })
+    .WithName("GetDocumentById")
+    .WithSummary("Get document by id")
+    .WithTags("Documents");
+
+// Documents: list
+app.MapGet("/api/documents", async (
+        string ns,
+        Guid? scopeId,
+        IConfigStore store,
+        CancellationToken ct) =>
+    {
+        var docs = await store.GetDocumentsAsync(ns, scopeId, ct);
+        return Results.Ok(docs.Select(d => d.ToResponse()));
+    })
+    .WithName("ListDocuments")
+    .WithSummary("List documents by namespace and optional scope")
+    .WithTags("Documents");
+
+// Documents: delete
+app.MapDelete("/api/documents/{id:guid}", async (
+        Guid id,
+        IConfigStore store,
+        CancellationToken ct) =>
+    {
+        var ok = await store.DeleteDocumentAsync(id, ct);
+        return ok ? Results.NoContent() : Results.NotFound();
+    })
+    .WithName("DeleteDocument")
+    .WithSummary("Delete a document")
+    .WithTags("Documents");
+
+// Documents: clone
+app.MapPost("/api/documents/clone", async (
+        CloneDocumentRequest req,
+        IConfigStore store,
+        CancellationToken ct) =>
+    {
+        var saved = await store.CloneDocumentAsync(req.SourceId, req.DestinationScopeId, req.UpdatedBy ?? "unknown", ct);
+        return Results.Created($"/api/documents/{saved.Id}", saved.ToResponse());
+    })
+    .WithName("CloneDocument")
+    .WithSummary("Clone a document to a different scope")
+    .WithTags("Documents");
+
+// Namespace export
+app.MapGet("/api/namespaces/{ns}/export", async (
+        string ns,
+        Guid? scopeId,
+        IConfigStore store,
+        CancellationToken ct) =>
+    {
+        var docs = await store.ExportAsync(ns, scopeId, ct);
+        return Results.Ok(docs.Select(d => d.ToResponse()));
+    })
+    .WithName("ExportNamespace")
+    .WithSummary("Export documents for a namespace (optionally filtered by scope)")
+    .WithTags("Documents");
+
+// Namespace import
+app.MapPost("/api/namespaces/{ns}/import", async (
+        string ns,
+        ImportRequest req,
+        IConfigStore store,
+        ITemplateValidator validator,
+        CancellationToken ct) =>
+    {
+        if (!string.Equals(ns, req.Namespace, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(new { error = "Namespace mismatch." });
+        }
+
+        var writes = new List<ConfigDocumentWrite>();
+        foreach (var d in req.Documents)
+        {
+            if (d.Content is null) return Results.BadRequest(new { error = "Content is required." });
+            writes.Add(new ConfigDocumentWrite(d.Id, d.ScopeId, req.Namespace, d.TemplateRef, d.Content, d.UpdatedBy ?? "unknown"));
+        }
+        var saved = await store.ImportAsync(req.Namespace, writes, ct);
+        return Results.Ok(saved.Select(s => s.ToResponse()));
+    })
+    .WithName("ImportNamespace")
+    .WithSummary("Import documents for a namespace")
+    .WithTags("Documents");
+
+// Diff two documents (by id or by inline content)
+app.MapPost("/api/documents/diff", async (
+        DiffRequest req,
+        IConfigStore store,
+        IMergeEngine merge,
+        CancellationToken ct) =>
+    {
+        async Task<JsonNode?> ResolveAsync(DocumentRefRequest r)
+        {
+            if (r.Id is Guid id)
+            {
+                var doc = await store.GetDocumentAsync(id, ct);
+                return doc is null ? null : JsonNode.Parse(doc.ContentJson);
+            }
+            return r.Content;
+        }
+
+        var a = await ResolveAsync(req.A);
+        var b = await ResolveAsync(req.B);
+        if (a is null || b is null) return Results.BadRequest(new { error = "Both documents must be resolvable." });
+
+        var fa = merge.Flatten(a);
+        var fb = merge.Flatten(b);
+        var added = fb.Keys.Except(fa.Keys, StringComparer.OrdinalIgnoreCase).OrderBy(k => k).ToList();
+        var removed = fa.Keys.Except(fb.Keys, StringComparer.OrdinalIgnoreCase).OrderBy(k => k).ToList();
+        var changed = fa.Keys.Intersect(fb.Keys, StringComparer.OrdinalIgnoreCase)
+            .Where(k => !string.Equals(fa[k], fb[k], StringComparison.Ordinal))
+            .OrderBy(k => k)
+            .Select(k => new DiffChangedEntry(k, fa[k], fb[k]))
+            .ToList();
+        return Results.Ok(new DiffResponse(added, removed, changed));
+    })
+    .WithName("DiffDocuments")
+    .WithSummary("Compute a diff between two document contents")
+    .WithTags("Documents");
+
 app.MapDefaultEndpoints();
 
 app.Run();
@@ -274,6 +403,33 @@ static ScopeContext BuildScopeContext(HttpRequest request)
         if (!string.IsNullOrWhiteSpace(siteValue))
         {
             dimensions["site"] = siteValue!;
+        }
+    }
+
+    if (request.Query.TryGetValue("division", out var divisionValues))
+    {
+        var divisionValue = divisionValues.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(divisionValue))
+        {
+            dimensions["division"] = divisionValue!;
+        }
+    }
+
+    if (request.Query.TryGetValue("device", out var deviceValues))
+    {
+        var deviceValue = deviceValues.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(deviceValue))
+        {
+            dimensions["device"] = deviceValue!;
+        }
+    }
+
+    if (request.Query.TryGetValue("user", out var userValues))
+    {
+        var userValue = userValues.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(userValue))
+        {
+            dimensions["user"] = userValue!;
         }
     }
 

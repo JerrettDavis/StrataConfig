@@ -4,7 +4,7 @@
 @using System.Text.Json.Nodes
 @using StrataConfig.Web.Components.Admin
 @using StrataConfig.Web.Services
-@inject ConfigApiClient Api
+@inject IConfigApiClient Api
 
 <PageTitle>Configuration Explorer</PageTitle>
 
@@ -17,7 +17,8 @@
             </div>
             <div class="quick-filters">
                 <button class="chip-button" type="button" @onclick="@(() => HandleQuickFilter(NorthwindFilter))">Northwind</button>
-                <button class="chip-button" type="button" @onclick="@(() => HandleQuickFilter(SiteFilter))">Site</button>
+                <button class="chip-button" type="button" @onclick="@(() => HandleQuickFilter(FabrikamFilter))">Fabrikam</button>
+                <button class="chip-button" type="button" @onclick="@(() => HandleQuickFilter(ContosoFilter))">Contoso</button>
                 <button class="chip-button" type="button" @onclick="@ClearQuickFilter">Clear</button>
             </div>
         </div>
@@ -41,7 +42,7 @@
                 <div class="chip-list">
                     @foreach (var tag in _availableTags)
                     {
-                        <button type="button" class="chip-button @( _activeTags.Contains(tag) ? "chip-active" : string.Empty)" @onclick="() => ToggleTag(tag)">@tag</button>
+                        <button type="button" class="chip-button @( _activeTags.Contains(tag) ? "chip-active" : string.Empty)" @onclick="@(() => ToggleTagAsync(tag))">@tag</button>
                     }
                 </div>
             </div>
@@ -58,6 +59,30 @@
                 </div>
             }
         </div>
+
+        <div class="scenario-bar">
+            <div class="scenario-head">
+                <span class="scenario-label">Sample scenarios</span>
+                <p class="scenario-description">Jump between seeded datasets to compare layering behavior.</p>
+            </div>
+            <div class="scenario-chips">
+                @foreach (var scenario in _sampleScenarios)
+                {
+                    var isActive = string.Equals(_activeScenarioId, scenario.Id, StringComparison.OrdinalIgnoreCase);
+                    <button type="button" class="chip-button scenario-chip @(isActive ? "chip-active" : string.Empty)" @onclick="@(() => SelectScenarioAsync(scenario))">
+                        <span>@scenario.Name</span>
+                    </button>
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_activeScenarioName) && !string.IsNullOrWhiteSpace(_activeScenarioDescription))
+            {
+                <p class="scenario-active"><strong>@_activeScenarioName:</strong> @_activeScenarioDescription</p>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_selectedNamespace) && NamespaceDescriptions.TryGetValue(_selectedNamespace!, out var nsDescription))
+        {
+            <p class="namespace-description">@nsDescription</p>
+        }
 
         @if (!string.IsNullOrWhiteSpace(_loadError))
         {
@@ -79,7 +104,7 @@
                 <h3>Layered Documents</h3>
                 <p class="subtitle">Ordered by precedence; later layers override earlier ones.</p>
                 <div class="layer-grid">
-                    @foreach (var layer in _documents.Layers.OrderBy(l => l.PrecedenceOrder))
+                    @foreach (var layer in (_documents.Layers ?? Array.Empty<ConfigLayerDto>()).OrderBy(l => l.PrecedenceOrder))
                     {
                         <div class="layer-card">
                             <header>
@@ -87,18 +112,21 @@
                                 <strong>@layer.Scope.Name</strong>
                                 <small>@layer.Scope.Kind</small>
                             </header>
-                            @if (layer.Documents.Count == 0)
+                            @{
+                                var documents = layer.Documents ?? Array.Empty<ConfigDocumentDto>();
+                            }
+                            @if (documents.Count == 0)
                             {
                                 <p class="muted">No documents for this layer.</p>
                             }
                             else
                             {
-                                @foreach (var doc in layer.Documents)
+                                @foreach (var doc in documents)
                                 {
                                     <article class="document">
                                         <div class="document-meta">
                                             <span class="template">@doc.TemplateRef</span>
-                                            <span class="version">v@doc.Version</span>
+                                <span class="version">v@(doc.Version)</span>
                                         </div>
                                         <pre>@FormatJson(doc.Content)</pre>
                                         <footer>
@@ -154,14 +182,53 @@
     };
 
     private const string NorthwindFilter = "northwind";
-    private const string SiteFilter = "site";
+    private const string FabrikamFilter = "fabrikam";
+    private const string ContosoFilter = "contoso";
 
     private readonly Dictionary<Guid, ScopeNodeDto> _scopeIndex = new();
+    private readonly Dictionary<string, ScopeNodeDto> _scopeByKey = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<ScopeNodeDto> _scopeTree = Array.Empty<ScopeNodeDto>();
     private IReadOnlyList<ScopeNodeDto> _filteredScopeTree = Array.Empty<ScopeNodeDto>();
     private IReadOnlyList<string> _namespaces = Array.Empty<string>();
     private readonly HashSet<string> _activeTags = new(StringComparer.OrdinalIgnoreCase);
-    private readonly string[] _availableTags = ["beta", "canary", "vip"];
+    private readonly string[] _availableTags = ["beta", "canary", "vip", "prod"];
+    private readonly IReadOnlyList<SampleScenario> _sampleScenarios =
+    [
+        new SampleScenario(
+            Id: "ui-northwind",
+            Name: "Northwind Storefront UI",
+            Namespace: "ui",
+            ScopeKey: "site:seattle-hq",
+            Description: "Retail theming path from global through division, org, site and device layers.",
+            Tags: ["beta"]),
+        new SampleScenario(
+            Id: "observability-berlin",
+            Name: "Berlin Ops Dashboards",
+            Namespace: "observability",
+            ScopeKey: "site:berlin-fulfillment",
+            Description: "Warehouse telemetry overrides with robotics-specific alerting.",
+            Tags: Array.Empty<string>()),
+        new SampleScenario(
+            Id: "pricing-london",
+            Name: "London Pricing Adjustments",
+            Namespace: "pricing",
+            ScopeKey: "site:london-hub",
+            Description: "Localized GBP pricing and delivery fees for the UK hub.",
+            Tags: Array.Empty<string>()),
+        new SampleScenario(
+            Id: "observability-robot",
+            Name: "Robot Escalation Rules",
+            Namespace: "observability",
+            ScopeKey: "device:line-ber-robot",
+            Description: "Device-level overrides that escalate production incidents.",
+            Tags: ["prod"])
+    ];
+    private static readonly Dictionary<string, string> NamespaceDescriptions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ui"] = "UI theme cascade highlighting division/org/site/device overrides for retail kiosks.",
+        ["observability"] = "Operational dashboards with alert channels tuned per scope.",
+        ["pricing"] = "Commerce pricing tiers with localized markups, tax, and delivery fees."
+    };
     private string _searchTerm = string.Empty;
     private NamespaceDocumentsDto? _documents;
     private IDictionary<string, string> _resolved = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -172,6 +239,9 @@
     private string? _selectedNamespace;
     private bool _isLoading;
     private string? _loadError;
+    private string? _activeScenarioId;
+    private string? _activeScenarioName;
+    private string? _activeScenarioDescription;
 
     protected override async Task OnInitializedAsync()
     {
@@ -194,6 +264,8 @@
             _selectedNamespace = _namespaces.First();
 
             _scopeTree = await Api.GetScopeTreeAsync();
+            _scopeIndex.Clear();
+            _scopeByKey.Clear();
             IndexScopeTree(_scopeTree);
             _selectedScope = _scopeTree.FirstOrDefault();
             _selectedScopeId = _selectedScope?.Id;
@@ -219,7 +291,8 @@
         foreach (var node in nodes)
         {
             _scopeIndex[node.Id] = node;
-            if (node.Children.Count > 0)
+            _scopeByKey[node.Key] = node;
+            if (node.Children?.Count > 0)
             {
                 IndexScopeTree(node.Children);
             }
@@ -228,6 +301,9 @@
 
     private async Task HandleScopeSelected(ScopeNodeDto node)
     {
+        _activeScenarioId = null;
+        _activeScenarioName = null;
+        _activeScenarioDescription = null;
         _selectedScopeId = node.Id;
         _selectedScope = node;
         await RefreshDocumentsAsync();
@@ -241,12 +317,52 @@
             return;
         }
 
+        _activeScenarioId = null;
+        _activeScenarioName = null;
+        _activeScenarioDescription = null;
         _selectedNamespace = ns;
+        await RefreshDocumentsAsync();
+    }
+
+    private async Task SelectScenarioAsync(SampleScenario scenario)
+    {
+        if (_scopeTree.Count == 0)
+        {
+            return;
+        }
+
+        _activeScenarioId = scenario.Id;
+        _activeScenarioName = scenario.Name;
+        _activeScenarioDescription = scenario.Description;
+
+        _filteredScopeTree = _scopeTree;
+
+        _activeTags.Clear();
+        foreach (var tag in scenario.Tags)
+        {
+            _activeTags.Add(tag);
+        }
+
+        if (!_scopeByKey.TryGetValue(scenario.ScopeKey, out var scope) || scope is null)
+        {
+            scope = _scopeTree.FirstOrDefault();
+        }
+
+        if (scope is not null)
+        {
+            _selectedScope = scope;
+            _selectedScopeId = scope.Id;
+        }
+
+        _selectedNamespace = scenario.Namespace;
         await RefreshDocumentsAsync();
     }
 
     private void HandleQuickFilter(string? filter)
     {
+        _activeScenarioId = null;
+        _activeScenarioName = null;
+        _activeScenarioDescription = null;
         if (string.IsNullOrWhiteSpace(filter))
         {
             _filteredScopeTree = _scopeTree;
@@ -268,23 +384,23 @@
         StateHasChanged();
     }
 
-    private void ToggleTag(string tag)
+    private async Task ToggleTagAsync(string tag)
     {
         if (!_activeTags.Add(tag))
         {
             _activeTags.Remove(tag);
         }
 
-        RefreshResolvedView();
-        StateHasChanged();
+        await RefreshDocumentsAsync();
     }
 
     private IReadOnlyList<ScopeNodeDto> FilterTree(IReadOnlyList<ScopeNodeDto> nodes, string filter)
     {
         var matches = new List<ScopeNodeDto>();
-        foreach (var node in nodes)
+        foreach (var node in nodes ?? Array.Empty<ScopeNodeDto>())
         {
-            var childMatches = FilterTree(node.Children, filter);
+            var children = node.Children ?? Array.Empty<ScopeNodeDto>();
+            var childMatches = FilterTree(children, filter);
             if (node.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) || childMatches.Count > 0)
             {
                 matches.Add(node with { Children = childMatches });
@@ -315,12 +431,15 @@
                 _appName);
             _documents = documents;
 
+            var tags = _activeTags.Count == 0
+                ? Array.Empty<string>()
+                : _activeTags.ToArray();
             var resolveContext = new ResolveScopeContext(
                 _environment,
                 _appName,
                 null,
                 new Dictionary<string, string>(dimensions, StringComparer.OrdinalIgnoreCase),
-                Array.Empty<string>());
+                tags);
             _resolved = await Api.ResolveAsync(_selectedNamespace!, resolveContext);
             RefreshResolvedView();
         }
@@ -364,12 +483,12 @@
             : key;
     }
 
-    private static string FormatJson(JsonNode node)
+    private static string FormatJson(JsonNode? node)
     {
-        return node.ToJsonString(new JsonSerializerOptions
+        return node?.ToJsonString(new JsonSerializerOptions
         {
             WriteIndented = true
-        });
+        }) ?? "null";
     }
 
     private readonly List<KeyValuePair<string, string>> _resolvedItems = new();
@@ -380,7 +499,14 @@
         _resolvedItems.AddRange(
             _resolved
                 .Where(kvp => string.IsNullOrWhiteSpace(_searchTerm) || kvp.Key.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
-                .Where(kvp => _activeTags.Count == 0 || _activeTags.Any(tag => kvp.Key.Contains(tag, StringComparison.OrdinalIgnoreCase)))
                 .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase));
     }
+
+    private sealed record SampleScenario(
+        string Id,
+        string Name,
+        string Namespace,
+        string ScopeKey,
+        string Description,
+        IReadOnlyList<string> Tags);
 }

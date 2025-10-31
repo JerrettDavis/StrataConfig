@@ -1,0 +1,471 @@
+@page "/documents"
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@inject IConfigApiClient Api
+
+<PageTitle>Documents</PageTitle>
+
+<div class="documents-page">
+    <aside class="sidebar">
+        <h3>Namespace</h3>
+        <select class="form-select" @onchange="OnNamespaceChanged" value="@_selectedNamespace">
+            <option value="">-- choose --</option>
+            @foreach (var ns in _namespaces)
+            {
+                <option value="@ns">@ns</option>
+            }
+        </select>
+
+        <h3>Scope</h3>
+        <ScopeTree Nodes="_scopeTree" SelectedScopeId="_selectedScopeId" OnScopeSelected="OnScopeSelected" />
+    </aside>
+
+    <section class="content">
+        <header class="toolbar">
+            <button class="btn btn-primary" @onclick="NewDocument" disabled="@(!_canEdit)">New</button>
+            <button class="btn btn-secondary" @onclick="ExportNamespace" disabled="@(!_canList)">Export</button>
+            <button class="btn btn-outline-secondary" @onclick="OpenImport" disabled="@(!_canList)">Import</button>
+        </header>
+
+        <div class="grid">
+            <div>
+                <h4>Documents</h4>
+                @if (_listError is not null)
+                {
+                    <div class="alert alert-danger">@_listError</div>
+                }
+                <ul class="list-group">
+                    @foreach (var d in _documents)
+                    {
+                        var isSelected = _activeDoc?.Id == d.Id;
+                        <li class="list-group-item @(isSelected ? "active" : string.Empty)" @onclick="(() => SelectDocument(d))">
+                            <div>
+                                <strong>@d.TemplateRef</strong>
+                                <small class="text-muted"> v@(d.Version) · @d.UpdatedBy</small>
+                            </div>
+                            <div><small>@d.UpdatedUtc.ToLocalTime()</small></div>
+                        </li>
+                    }
+                </ul>
+            </div>
+            <div>
+                <h4>Editor</h4>
+                @if (_activeDoc is null)
+                {
+                    <p class="text-muted">Select a document or click New.</p>
+                }
+                else
+                {
+                    <div class="mb-2">
+                        <label>Template</label>
+                        <input class="form-control" list="templateOptions" @bind="_activeTemplateRef" />
+                        <datalist id="templateOptions">
+                            @foreach (var t in FilterTemplates())
+                            {
+                                <option value="@t.Id"></option>
+                            }
+                        </datalist>
+                    </div>
+                    <div class="mb-2">
+                        <label class="d-block">Editor</label>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm @( _editorMode == EditorMode.Form ? "btn-primary" : "btn-outline-primary")" @onclick="(() => SwitchEditor(EditorMode.Form))">Form</button>
+                            <button type="button" class="btn btn-sm @( _editorMode == EditorMode.Json ? "btn-primary" : "btn-outline-primary")" @onclick="(() => SwitchEditor(EditorMode.Json))">JSON</button>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_editorError))
+                    {
+                        <div class="alert alert-warning">@_editorError</div>
+                    }
+                    @if (_editorMode == EditorMode.Json) {<textarea class="form-control code editor-area" rows="18" @bind="_editorText"></textarea>} else {<div class="property-grid">@foreach (var entry in _formEntries){<div class="prop-row"><input class="form-control prop-key" placeholder="key (dot.path)" @bind="entry.Key" @bind:event="oninput" /><input class="form-control prop-val" placeholder="value" @bind="entry.Value" @bind:event="oninput" /><button type="button" class="btn btn-outline-danger btn-sm" @onclick="(() => RemoveFormEntry(entry))">×</button></div>}<div><button type="button" class="btn btn-outline-secondary btn-sm" @onclick="AddFormEntry">Add property</button></div></div>}
+                    <div class="mt-2 d-flex gap-2">
+                        <button class="btn btn-success" @onclick="SaveDocument">Save</button>
+                        <button class="btn btn-danger" @onclick="DeleteDocument">Delete</button>
+                        <button class="btn btn-outline-primary" @onclick="OpenClone">Clone…</button>
+                        <button class="btn btn-outline-dark" @onclick="OpenDiff">Compare…</button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (_showImport)
+        {
+            <div class="import-modal">
+                <h5>Import JSON (array of documents)</h5>
+                <textarea class="form-control code" rows="12" @bind="_importText"></textarea>
+                <div class="mt-2 d-flex gap-2">
+                    <button class="btn btn-primary" @onclick="DoImport">Import</button>
+                    <button class="btn btn-secondary" @onclick="CloseImport">Cancel</button>
+                </div>
+            </div>
+        }
+
+        @if (_showClone)
+        {
+            <div class="import-modal">
+                <h5>Clone Document</h5>
+                <p class="text-muted">Select a destination scope.</p>
+                <div style="max-height:40vh; overflow:auto; border:1px solid #e3e8f3; border-radius:8px; padding:.5rem;">
+                    <ScopeTree Nodes="_scopeTree" SelectedScopeId="_cloneScopeId" OnScopeSelected="OnCloneScopePicked" />
+                </div>
+                <div class="mt-2 d-flex gap-2">
+                    <button class="btn btn-primary" @onclick="ConfirmClone" disabled="@(!_cloneScopeId.HasValue)">Clone</button>
+                    <button class="btn btn-secondary" @onclick="CloseClone">Cancel</button>
+                </div>
+            </div>
+        }
+
+        @if (_showDiffPicker)
+        {
+            <div class="import-modal">
+                <h5>Compare With…</h5>
+                <input class="form-control" placeholder="Filter by template or user" @bind="_diffFilter" @bind:event="oninput" />
+                <div style="max-height:40vh; overflow:auto; border:1px solid #e3e8f3; border-radius:8px; padding:.5rem; margin-top:.5rem;">
+                    <ul class="list-group">
+                        @foreach (var doc in _diffCandidates)
+                        {
+                            var match = string.IsNullOrWhiteSpace(_diffFilter)
+                                || doc.TemplateRef.Contains(_diffFilter, StringComparison.OrdinalIgnoreCase)
+                                || doc.UpdatedBy.Contains(_diffFilter, StringComparison.OrdinalIgnoreCase);
+                            if (!match) { continue; }
+                            <li class="list-group-item" @onclick="(() => PickDiff(doc))">
+                                <div><strong>@doc.TemplateRef</strong> <small class="text-muted">v@(doc.Version) · @doc.UpdatedBy</small></div>
+                                <div><small>@_scopeIndex.GetValueOrDefault(doc.ScopeId)?.Name</small></div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <div class="mt-2 d-flex gap-2">
+                    <button class="btn btn-secondary" @onclick="CloseDiff">Close</button>
+                </div>
+            </div>
+        }
+
+        @if (_diffResult is not null)
+        {
+            <section class="diff">
+                <h5>Diff</h5>
+                <div class="row">
+                    <div class="col">
+                        <strong>Added</strong>
+                        <ul>@foreach (var k in _diffResult.Added) { <li>@k</li> }</ul>
+                    </div>
+                    <div class="col">
+                        <strong>Removed</strong>
+                        <ul>@foreach (var k in _diffResult.Removed) { <li>@k</li> }</ul>
+                    </div>
+                    <div class="col">
+                        <strong>Changed</strong>
+                        <ul>@foreach (var c in _diffResult.Changed) { <li>@c.Key: <code>@c.From</code> → <code>@c.To</code></li> }</ul>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" @onclick="(() => _diffResult = null)">Close</button>
+            </section>
+        }
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<string> _namespaces = Array.Empty<string>();
+    private IReadOnlyList<TemplateDto> _templates = Array.Empty<TemplateDto>();
+    private IReadOnlyList<ScopeNodeDto> _scopeTree = Array.Empty<ScopeNodeDto>();
+    private string? _selectedNamespace;
+    private Guid? _selectedScopeId;
+    private List<ConfigDocumentDto> _documents = new();
+    private ConfigDocumentDto? _activeDoc;
+    private string _editorText = "";
+    private string _activeTemplateRef = "";
+    private string? _editorError;
+    private string? _listError;
+    private bool _showImport;
+    private string _importText = "";
+    private DiffResponseDto? _diffResult;
+
+    private bool _canList => !string.IsNullOrWhiteSpace(_selectedNamespace);
+    private bool _canEdit => _canList && _selectedScopeId.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _namespaces = await Api.GetNamespacesAsync();
+        _scopeTree = await Api.GetScopeTreeAsync();
+        _templates = await Api.GetTemplatesAsync();
+    }
+
+    private async Task OnNamespaceChanged(ChangeEventArgs e)
+    {
+        _selectedNamespace = e.Value?.ToString();
+        await RefreshListAsync();
+    }
+
+    private async Task OnScopeSelected(ScopeNodeDto node)
+    {
+        _selectedScopeId = node.Id;
+        await RefreshListAsync();
+    }
+
+    private async Task RefreshListAsync()
+    {
+        _listError = null;
+        _documents.Clear();
+        _activeDoc = null;
+        _editorText = string.Empty;
+        if (!_canList) return;
+        try
+        {
+            _documents = (await Api.ListDocumentsAsync(_selectedNamespace!, _selectedScopeId)).ToList();
+        }
+        catch (Exception ex)
+        {
+            _listError = ex.Message;
+        }
+        StateHasChanged();
+    }
+
+    private void SelectDocument(ConfigDocumentDto d)
+    {
+        _activeDoc = d;
+        _activeTemplateRef = d.TemplateRef;
+        _editorText = d.Content.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private void NewDocument()
+    {
+        if (!_canEdit) return;
+        _activeDoc = new ConfigDocumentDto(Guid.Empty, _selectedScopeId!.Value, "", 0, DateTimeOffset.UtcNow, "me", new JsonObject());
+        _activeTemplateRef = "";
+        _editorText = "{\n}\n";
+    }
+
+    private async Task SaveDocument()
+    {
+        if (_activeDoc is null || !_canEdit || string.IsNullOrWhiteSpace(_activeTemplateRef)) return;
+        _editorError = null;
+        try
+        {
+            if (_editorMode == EditorMode.Form)
+            {
+                SyncEditorTextFromForm();
+            }
+            var node = JsonNode.Parse(_editorText);
+            if (node is null) { _editorError = "Invalid JSON"; return; }
+            var saved = await Api.UpsertDocumentAsync(
+                _activeDoc.Id == Guid.Empty ? null : _activeDoc.Id,
+                _activeDoc.ScopeId,
+                _selectedNamespace!,
+                _activeTemplateRef,
+                node,
+                "webui");
+            await RefreshListAsync();
+            // Reselect the saved doc
+            var match = _documents.FirstOrDefault(x => x.Id == saved.Id);
+            if (match is not null) SelectDocument(match);
+        }
+        catch (Exception ex)
+        {
+            _editorError = ex.Message;
+        }
+    }
+
+    private async Task DeleteDocument()
+    {
+        if (_activeDoc is null || _activeDoc.Id == Guid.Empty) return;
+        await Api.DeleteDocumentAsync(_activeDoc.Id);
+        await RefreshListAsync();
+    }
+
+    private void OpenClone() { _showClone = true; _cloneScopeId = null; }
+    private void CloseClone() { _showClone = false; }
+    private Task OnCloneScopePicked(ScopeNodeDto node) { _cloneScopeId = node.Id; return Task.CompletedTask; }
+    private async Task ConfirmClone()
+    {
+        if (_activeDoc is null || !_cloneScopeId.HasValue) return;
+        var cloned = await Api.CloneDocumentAsync(_activeDoc.Id, _cloneScopeId.Value, "webui");
+        _showClone = false;
+        await RefreshListAsync();
+        var match = _documents.FirstOrDefault(x => x.Id == cloned.Id);
+        if (match is not null) SelectDocument(match);
+    }
+
+    private async Task OpenDiff()
+    {
+        if (_activeDoc is null || string.IsNullOrWhiteSpace(_selectedNamespace)) return;
+        _diffCandidates = (await Api.ListDocumentsAsync(_selectedNamespace!, null)).Where(d => d.Id != _activeDoc.Id).ToList();
+        _scopeIndex = _scopeTree.SelectMany(Flatten).ToDictionary(s => s.Id, s => s);
+        _diffFilter = string.Empty;
+        _showDiffPicker = true;
+    }
+    private void CloseDiff() { _showDiffPicker = false; }
+    private async Task PickDiff(ConfigDocumentDto other)
+    {
+        if (_activeDoc is null) return;
+        _showDiffPicker = false;
+        _diffResult = await Api.DiffAsync(null, _activeDoc.Id, null, other.Id);
+    }
+
+    private async Task ExportNamespace()
+    {
+        if (!_canList) return;
+        var docs = await Api.ExportAsync(_selectedNamespace!, _selectedScopeId);
+        // Show as JSON in a new window (simple UX):
+        var json = JsonSerializer.Serialize(docs.Select(d => new { d.Id, d.ScopeId, d.TemplateRef, d.Content, d.UpdatedBy, d.Version, d.UpdatedUtc }), new JsonSerializerOptions { WriteIndented = true });
+        await JS.InvokeVoidAsync("console.log", json);
+        // In a real app, offer download. For now, set editor to export preview.
+        _editorText = json;
+    }
+
+    private void OpenImport() => _showImport = true;
+    private void CloseImport() { _showImport = false; _importText = string.Empty; }
+
+    private async Task DoImport()
+    {
+        if (!_canList) return;
+        try
+        {
+            var arr = JsonNode.Parse(_importText) as JsonArray;
+            if (arr is null) { _listError = "Import expects a JSON array"; return; }
+            var requests = new List<ImportDocumentRequestDto>();
+            foreach (var el in arr)
+            {
+                if (el is null) continue;
+                var id = el["id"]?.GetValue<Guid?>();
+                var scopeId = el["scopeId"]!.GetValue<Guid>();
+                var templateRef = el["templateRef"]!.GetValue<string>();
+                var content = el["content"] as JsonNode ?? new JsonObject();
+                var updatedBy = el["updatedBy"]?.GetValue<string?>();
+                requests.Add(new ImportDocumentRequestDto(id, scopeId, templateRef, content, updatedBy));
+            }
+            await Api.ImportAsync(_selectedNamespace!, requests);
+            _showImport = false;
+            await RefreshListAsync();
+        }
+        catch (Exception ex)
+        {
+            _listError = ex.Message;
+        }
+    }
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private IEnumerable<TemplateDto> FilterTemplates()
+        => string.IsNullOrWhiteSpace(_selectedNamespace)
+            ? _templates
+            : _templates.Where(t => t.Id.Contains(_selectedNamespace!, StringComparison.OrdinalIgnoreCase));
+
+    private async Task<Guid?> PromptGuidAsync(string message)
+    {
+        try
+        {
+            var value = await JS.InvokeAsync<string>("prompt", message);
+            if (Guid.TryParse(value, out var id)) return id;
+            return null;
+        }
+        catch { return null; }
+    }
+    private enum EditorMode { Json, Form }
+    private EditorMode _editorMode = EditorMode.Json;
+    private List<FormEntry> _formEntries = new();
+    private List<ConfigDocumentDto> _diffCandidates = new();
+    private string _diffFilter = string.Empty;
+    private bool _showClone;
+    private Guid? _cloneScopeId;
+    private bool _showDiffPicker;
+    private Dictionary<Guid, ScopeNodeDto> _scopeIndex = new();
+
+    private void SwitchEditor(EditorMode mode)
+    {
+        if (_editorMode == mode) return;
+        if (mode == EditorMode.Form)
+        {
+            BuildFormEntriesFromEditorText();
+        }
+        _editorMode = mode;
+    }
+
+    private void AddFormEntry() => _formEntries.Add(new FormEntry());
+    private void RemoveFormEntry(FormEntry entry) => _formEntries.Remove(entry);
+
+    private void BuildFormEntriesFromEditorText()
+    {
+        _formEntries.Clear();
+        try
+        {
+            var node = JsonNode.Parse(_editorText) as JsonObject ?? new JsonObject();
+            foreach (var kv in FlattenNode(node))
+            {
+                _formEntries.Add(new FormEntry { Key = kv.Key, Value = kv.Value });
+            }
+        }
+        catch
+        {
+            _formEntries.Add(new FormEntry());
+        }
+    }
+
+    private void SyncEditorTextFromForm()
+    {
+        var root = new JsonObject();
+        foreach (var e in _formEntries)
+        {
+            if (string.IsNullOrWhiteSpace(e.Key)) continue;
+            SetValueByPath(root, e.Key, e.Value);
+        }
+        _editorText = root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private static IEnumerable<KeyValuePair<string, string>> FlattenNode(JsonObject obj, string prefix = "")
+    {
+        foreach (var kvp in obj)
+        {
+            var key = string.IsNullOrEmpty(prefix) ? kvp.Key : $"{prefix}.{kvp.Key}";
+            switch (kvp.Value)
+            {
+                case JsonObject childObj:
+                    foreach (var inner in FlattenNode(childObj, key)) yield return inner;
+                    break;
+                case JsonValue v:
+                    yield return new KeyValuePair<string, string>(key, v.ToJsonString().Trim('"'));
+                    break;
+                default:
+                    yield return new KeyValuePair<string, string>(key, kvp.Value?.ToJsonString() ?? "");
+                    break;
+            }
+        }
+    }
+
+    private static void SetValueByPath(JsonObject root, string path, string value)
+    {
+        var parts = path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        JsonObject current = root;
+        for (int i = 0; i < parts.Length; i++)
+        {
+            var part = parts[i];
+            var isLast = i == parts.Length - 1;
+            if (isLast)
+            {
+                if (bool.TryParse(value, out var b)) current[part] = b;
+                else if (decimal.TryParse(value, out var n)) current[part] = n;
+                else current[part] = value;
+            }
+            else
+            {
+                if (current[part] is not JsonObject next)
+                {
+                    next = new JsonObject();
+                    current[part] = next;
+                }
+                current = next;
+            }
+        }
+    }
+
+    private static IEnumerable<ScopeNodeDto> Flatten(ScopeNodeDto n)
+    {
+        yield return n;
+        foreach (var c in n.Children)
+            foreach (var i in Flatten(c)) yield return i;
+    }
+
+    private sealed class FormEntry { public string Key { get; set; } = string.Empty; public string Value { get; set; } = string.Empty; }
+}
+
+

@@ -1,7 +1,7 @@
 @using StrataConfig.Web.Services
 
 <div class="scope-tree">
-    @if (Nodes.Count == 0)
+    @if (Nodes is null || Nodes.Count == 0)
     {
         <p class="empty">No scopes available.</p>
     }
@@ -37,10 +37,11 @@
         builder.CloseElement();
         builder.CloseElement();
 
-        if (node.Children.Count > 0)
+        var children = node.Children ?? Array.Empty<ScopeNodeDto>();
+        if (children.Count > 0)
         {
             builder.OpenElement(seq++, "ul");
-            foreach (var child in node.Children)
+            foreach (var child in children)
             {
                 builder.AddContent(seq++, RenderNode(child));
             }

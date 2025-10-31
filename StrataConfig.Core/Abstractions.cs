@@ -67,6 +67,12 @@ public interface IConfigStore
 {
     Task<StoreSnapshot> ReadAsync(ScopeContext scope, string @namespace, CancellationToken ct);
     Task<ConfigDocument> UpsertAsync(ConfigDocumentWrite document, CancellationToken ct);
+    Task<ConfigDocument?> GetDocumentAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<ConfigDocument>> GetDocumentsAsync(string @namespace, Guid? scopeId, CancellationToken ct);
+    Task<bool> DeleteDocumentAsync(Guid id, CancellationToken ct);
+    Task<ConfigDocument> CloneDocumentAsync(Guid id, Guid newScopeId, string updatedBy, CancellationToken ct);
+    Task<IReadOnlyList<ConfigDocument>> ImportAsync(string @namespace, IEnumerable<ConfigDocumentWrite> documents, CancellationToken ct);
+    Task<IReadOnlyList<ConfigDocument>> ExportAsync(string @namespace, Guid? scopeId, CancellationToken ct);
     Task<IReadOnlyList<Template>> GetTemplatesAsync(CancellationToken ct);
     Task<IReadOnlyList<string>> GetNamespacesAsync(CancellationToken ct);
     Task<IReadOnlyList<ScopeNode>> GetScopeNodesAsync(CancellationToken ct);

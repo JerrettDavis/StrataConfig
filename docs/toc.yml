@@ -1,0 +1,46 @@
+- name: Overview
+  href: index.md
+- name: Getting Started
+  href: getting-started.md
+- name: Architecture
+  items:
+  - name: System Overview
+    href: architecture/overview.md
+  - name: Components & Projects
+    href: architecture/components.md
+  - name: Data Model
+    href: architecture/data-model.md
+  - name: Merge Engine
+    href: architecture/merge-engine.md
+  - name: Rule Engine
+    href: architecture/rule-engine.md
+  - name: Templates & Validation
+    href: architecture/templates.md
+- name: Development
+  items:
+  - name: Build & Run (AppHost)
+    href: development/build-and-run.md
+  - name: UI Styling & Assets
+    href: styling-and-assets.md
+  - name: E2E Tests (Playwright)
+    href: e2e-tests.md
+  - name: Testing Strategy
+    href: development/testing.md
+  - name: Document Editors
+    href: development/editors.md
+  - name: Contributing
+    href: development/contributing.md
+- name: Operations
+  items:
+  - name: Deployment
+    href: operations/deployment.md
+  - name: Security
+    href: operations/security.md
+  - name: Observability
+    href: operations/observability.md
+- name: API Reference
+  items:
+  - name: Overview
+    href: api/overview.md
+  - name: API YAML
+    href: api/index.md

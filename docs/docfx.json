@@ -1,0 +1,33 @@
+{
+  "metadata": [
+    {
+      "src": [
+        { "files": [ "../StrataConfig.Core/StrataConfig.Core.csproj" ] },
+        { "files": [ "../StrataConfig.ApiService/StrataConfig.ApiService.csproj" ] },
+        { "files": [ "../StrataConfig.Web/StrataConfig.Web.csproj" ] },
+        { "files": [ "../StrataConfig.ServiceDefaults/StrataConfig.ServiceDefaults.csproj" ] }
+      ],
+      "dest": "api",
+      "shouldSkipMarkup": false
+    }
+  ],
+  "build": {
+    "content": [
+      { "files": [ "index.md", "toc.yml", "**/*.md" ] },
+      { "files": [ "api/**.yml", "api/index.md" ], "dest": "api" }
+    ],
+    "resource": [
+      { "files": [ "images/**" ] }
+    ],
+    "globalMetadata": {
+      "_appTitle": "StrataConfig Documentation",
+      "_appFooter": "© StrataConfig",
+      "_enableSearch": true
+    },
+    "dest": "_site",
+    "xrefService": [
+      "https://xref.docs.microsoft.com/query?uid={uid}"
+    ]
+  }
+}
+

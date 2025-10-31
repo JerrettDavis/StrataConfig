@@ -7,6 +7,7 @@
     <PackageVersion Include="Aspire.Hosting.Redis" Version="9.5.2" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="9.5.2" />
     <PackageVersion Include="Aspire.StackExchange.Redis.OutputCaching" Version="9.5.2" />
+    <PackageVersion Include="bunit" Version="1.31.3" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0-rc.1.25451.107" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0-rc.1.25451.107" />
@@ -24,5 +25,6 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.12.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
     <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.48.0" />
   </ItemGroup>
 </Project>

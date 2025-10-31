@@ -16,6 +16,8 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+        <PackageReference Include="Microsoft.Playwright" />
+        <PackageReference Include="bunit" />
         <PackageReference Include="Microsoft.NET.Test.Sdk"/>
         <PackageReference Include="PatternKit.Core" />
         <PackageReference Include="TinyBDD" />
@@ -31,6 +33,7 @@
         <ProjectReference Include="..\StrataConfig.AppHost\StrataConfig.AppHost.csproj"/>
         <ProjectReference Include="..\StrataConfig.ApiService\StrataConfig.ApiService.csproj" />
         <ProjectReference Include="..\StrataConfig.Core\StrataConfig.Core.csproj" />
+        <ProjectReference Include="..\StrataConfig.Web\StrataConfig.Web.csproj" />
     </ItemGroup>
 
     <ItemGroup>

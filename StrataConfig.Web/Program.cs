@@ -12,7 +12,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddOutputCache();
 
-builder.Services.AddHttpClient<ConfigApiClient>(client =>
+builder.Services.AddHttpClient<IConfigApiClient, ConfigApiClient>(client =>
 {
     client.BaseAddress = new("https+http://apiservice");
     client.Timeout = TimeSpan.FromSeconds(30);
@@ -32,6 +32,9 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.UseOutputCache();
+
+// Ensure wwwroot and static assets are served
+app.UseStaticFiles();
 
 app.MapStaticAssets();
 

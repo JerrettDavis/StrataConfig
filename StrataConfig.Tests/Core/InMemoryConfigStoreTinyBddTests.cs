@@ -15,7 +15,7 @@ public sealed class InMemoryConfigStoreTinyBddTests(Xunit.Abstractions.ITestOutp
     public Task Read_ReturnsOrderedLayers()
         => Given("store with default seed", BuildState)
            .Then("revision watermark is non-zero", s => s.Snapshot.Revision >= 3)
-           .And("layers are ordered from global to environment", s => s.Snapshot.Layers.Select(l => l.Scope.Kind).SequenceEqual(new[] { "global", "org", "site", "app", "environment" }))
+           .And("layers are ordered from global to environment", s => s.Snapshot.Layers.Select(l => l.Scope.Kind).SequenceEqual(new[] { "global", "division", "org", "site", "app", "environment" }))
            .And("site layer overrides welcome flag", s => s.Snapshot.Layers.First(l => l.Scope.Kind == "site").Documents.First().ContentJson.Contains("\"welcome\":false"))
            .AssertPassed();
 
@@ -33,6 +33,8 @@ public sealed class InMemoryConfigStoreTinyBddTests(Xunit.Abstractions.ITestOutp
         => Given("store", BuildState)
            .When("querying metadata", QueryMetadata)
            .Then("namespaces include ui", meta => meta.Namespaces.Contains("ui"))
+           .And("namespaces include observability", meta => meta.Namespaces.Contains("observability"))
+           .And("namespaces include pricing", meta => meta.Namespaces.Contains("pricing"))
            .And("scope node count", meta => meta.ScopeNodes.Count >= 3)
            .AssertPassed();
 

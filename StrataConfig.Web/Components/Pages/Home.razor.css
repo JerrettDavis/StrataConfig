@@ -64,6 +64,60 @@
     gap: 1.5rem;
 }
 
+.scenario-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: #eef3ff;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    border: 1px solid rgba(45, 70, 150, 0.15);
+}
+
+.scenario-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.scenario-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #4d5f92;
+    font-weight: 600;
+}
+
+.scenario-description {
+    margin: 0;
+    color: #2f3f6c;
+    font-size: 0.9rem;
+}
+
+.scenario-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.scenario-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.scenario-active {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #2d3f6e;
+}
+
+.namespace-description {
+    margin: 0.5rem 0 0;
+    color: #56658c;
+    font-size: 0.85rem;
+}
+
 .toolbar {
     display: flex;
     flex-wrap: wrap;
