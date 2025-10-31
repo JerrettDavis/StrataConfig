@@ -42,6 +42,7 @@ public class FrontendE2ETests : IClassFixture<AutoHostFixture>
     }
 
     [Fact]
+    [Trait("Category", "E2E")]
     public async Task CssIsolation_AppliesGridLayout()
     {
         var setup = await TryLaunchAsync();
@@ -68,6 +69,7 @@ public class FrontendE2ETests : IClassFixture<AutoHostFixture>
     }
 
     [Fact]
+    [Trait("Category", "E2E")]
     public async Task Interactivity_SelectsScenarioAndUpdatesBanner()
     {
         var setup = await TryLaunchAsync();
@@ -96,6 +98,7 @@ public class FrontendE2ETests : IClassFixture<AutoHostFixture>
     }
 
     [Fact]
+    [Trait("Category", "E2E")]
     public async Task NamespaceDropdown_ChangesDescription()
     {
         var setup = await TryLaunchAsync();
@@ -117,6 +120,7 @@ public class FrontendE2ETests : IClassFixture<AutoHostFixture>
     }
 
     [Fact]
+    [Trait("Category", "E2E")]
     public async Task ScopeSelection_UpdatesScopeSummary()
     {
         var setup = await TryLaunchAsync();
@@ -138,6 +142,7 @@ public class FrontendE2ETests : IClassFixture<AutoHostFixture>
     }
 
     [Fact]
+    [Trait("Category", "E2E")]
     public async Task SearchFilter_FiltersResolvedGrid()
     {
         var setup = await TryLaunchAsync();
@@ -162,6 +167,7 @@ public class FrontendE2ETests : IClassFixture<AutoHostFixture>
     }
 
     [Fact]
+    [Trait("Category", "E2E")]
     public async Task TagToggle_AddsActiveClass()
     {
         var setup = await TryLaunchAsync();

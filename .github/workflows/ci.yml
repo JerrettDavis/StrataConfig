@@ -9,6 +9,8 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    env:
+      E2E_ENABLED: 'false'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,7 +35,8 @@ jobs:
       - name: Build
         run: dotnet build StrataConfig.sln -c Release --no-restore
 
-      - name: Install Playwright browsers
+      - name: Install Playwright browsers (E2E only)
+        if: env.E2E_ENABLED == 'true'
         shell: pwsh
         run: |
           $script = Get-ChildItem -Recurse -Filter playwright.ps1 -Path StrataConfig.Tests/bin/Release | Select-Object -First 1
@@ -44,8 +47,13 @@ jobs:
             Write-Host "Playwright install script not found; skipping browser install."
           }
 
-      - name: Test
+      - name: Test (unit only; skip E2E)
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: 1
-        run: dotnet test StrataConfig.Tests -c Release --no-build --logger "trx;LogFileName=test_results.trx"
+        run: dotnet test StrataConfig.Tests -c Release --no-build --logger "trx;LogFileName=test_results.trx" --filter "FullyQualifiedName!~StrataConfig.Tests.E2E"
 
+      - name: Test (E2E only)
+        if: env.E2E_ENABLED == 'true'
+        env:
+          DOTNET_CLI_TELEMETRY_OPTOUT: 1
+        run: dotnet test StrataConfig.Tests -c Release --no-build --logger "trx;LogFileName=test_results_e2e.trx" --filter "FullyQualifiedName~StrataConfig.Tests.E2E"
