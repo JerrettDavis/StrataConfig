@@ -32,7 +32,7 @@ public sealed class ScopeModelsTinyBddTests(Xunit.Abstractions.ITestOutputHelper
     [Scenario("ScopeContext exposes nullable AppVersion")]
     [Fact]
     public Task ScopeContext_AppVersionAccessor()
-        => Given("scope context with version", () => new ScopeContext("Prod", "App", "1.2.3", new Dictionary<string, string>(), Array.Empty<string>()))
+        => Given("scope context with version", () => new ScopeContext("Prod", "App", "1.2.3", new Dictionary<string, string>(), []))
            .Then("app version returns value", ctx => ctx.AppVersion == "1.2.3")
            .AssertPassed();
 
@@ -41,7 +41,7 @@ public sealed class ScopeModelsTinyBddTests(Xunit.Abstractions.ITestOutputHelper
         var root = ScopeNode.Create(Guid.NewGuid(), "global", "global", "Global");
         var org = ScopeNode.Create(Guid.NewGuid(), "org:northwind", "org", "Northwind", parentId: root.Id);
         var site = ScopeNode.Create(Guid.NewGuid(), "site:seattle", "site", "Seattle", parentId: org.Id);
-        var graph = new ScopeGraph(new[] { root, org, site });
+        var graph = new ScopeGraph([root, org, site]);
         return new ScopeGraphContext(graph, root, org, site);
     }
 

@@ -24,7 +24,7 @@ public sealed class DocumentsCrudTinyBddTests(Xunit.Abstractions.ITestOutputHelp
     {
         var factory = new WebApplicationFactory<ApiProgram>();
         var ctx = new ApiContext(factory, factory.CreateClient());
-        return new TestState(ctx, new HttpResponseMessage(), Guid.Empty, new HttpResponseMessage(), new HttpResponseMessage(), null, new(), new(), new HttpResponseMessage(), null);
+        return new TestState(ctx, new HttpResponseMessage(), Guid.Empty, new HttpResponseMessage(), new HttpResponseMessage(), null, [], [], new HttpResponseMessage(), null);
     }
 
     [Scenario("Create, get, list, clone, delete, export/import, diff")]
@@ -73,7 +73,7 @@ public sealed class DocumentsCrudTinyBddTests(Xunit.Abstractions.ITestOutputHelp
 
     private static TestState ListDocs(TestState state)
     {
-        var docs = state.Context.Client.GetFromJsonAsync<List<DocumentResponse>>("/api/documents?ns=ui").GetAwaiter().GetResult() ?? new();
+        var docs = state.Context.Client.GetFromJsonAsync<List<DocumentResponse>>("/api/documents?ns=ui").GetAwaiter().GetResult() ?? [];
         return state with { List = docs };
     }
 
@@ -101,7 +101,7 @@ public sealed class DocumentsCrudTinyBddTests(Xunit.Abstractions.ITestOutputHelp
 
     private static TestState ExportNamespace(TestState state)
     {
-        var export = state.Context.Client.GetFromJsonAsync<List<DocumentResponse>>("/api/namespaces/ui/export").GetAwaiter().GetResult() ?? new();
+        var export = state.Context.Client.GetFromJsonAsync<List<DocumentResponse>>("/api/namespaces/ui/export").GetAwaiter().GetResult() ?? [];
         return state with { Export = export };
     }
 

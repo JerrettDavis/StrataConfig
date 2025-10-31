@@ -10,8 +10,9 @@ namespace StrataConfig.Core;
 public sealed class InMemoryConfigStore : IConfigStore
 {
     private readonly ConcurrentDictionary<string, List<ConfigDocument>> _docsByNamespace = new();
-    private readonly List<Template> _templates = new();
-    private readonly List<Rule> _rules = new();
+    private readonly HashSet<string> _additionalNamespaces = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<Template> _templates = [];
+    private readonly List<Rule> _rules = [];
     private readonly Dictionary<string, ScopeNode> _scopeByKey = new(StringComparer.OrdinalIgnoreCase);
     private readonly Guid _rootScopeId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private readonly ScopeGraph _graph;
@@ -292,8 +293,7 @@ public sealed class InMemoryConfigStore : IConfigStore
 
     private void SeedTemplates()
     {
-        _templates.AddRange(new[]
-        {
+        _templates.AddRange([
             new Template(
                 Id: "ui.theme",
                 SchemaVersion: 1,
@@ -309,7 +309,7 @@ public sealed class InMemoryConfigStore : IConfigStore
                 SchemaVersion: 1,
                 JsonSchema: PricingSchema,
                 UIMetadata: null)
-        });
+        ]);
     }
 
     private void SeedDocuments()
@@ -799,7 +799,7 @@ public sealed class InMemoryConfigStore : IConfigStore
 
     public Task<ConfigDocument> UpsertAsync(ConfigDocumentWrite document, CancellationToken ct)
     {
-        var list = _docsByNamespace.GetOrAdd(document.Namespace, _ => new List<ConfigDocument>());
+        var list = _docsByNamespace.GetOrAdd(document.Namespace, _ => []);
 
         ConfigDocument stored;
         lock (_gate)
@@ -848,7 +848,7 @@ public sealed class InMemoryConfigStore : IConfigStore
     public Task<IReadOnlyList<ConfigDocument>> GetDocumentsAsync(string @namespace, Guid? scopeId, CancellationToken ct)
     {
         _docsByNamespace.TryGetValue(@namespace, out var list);
-        var result = (list ?? new List<ConfigDocument>())
+        var result = (list ?? [])
             .Where(d => !scopeId.HasValue || d.ScopeId == scopeId.Value)
             .Select(CloneDocument)
             .ToList();
@@ -897,7 +897,7 @@ public sealed class InMemoryConfigStore : IConfigStore
     public Task<IReadOnlyList<ConfigDocument>> ExportAsync(string @namespace, Guid? scopeId, CancellationToken ct)
     {
         _docsByNamespace.TryGetValue(@namespace, out var list);
-        var items = (list ?? new List<ConfigDocument>())
+        var items = (list ?? [])
             .Where(d => !scopeId.HasValue || d.ScopeId == scopeId.Value)
             .Select(CloneDocument)
             .ToList();
@@ -910,6 +910,9 @@ public sealed class InMemoryConfigStore : IConfigStore
     public Task<IReadOnlyList<string>> GetNamespacesAsync(CancellationToken ct)
     {
         var keys = _docsByNamespace.Keys
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
+            .Concat(_additionalNamespaces)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
             .ToList();
         return Task.FromResult((IReadOnlyList<string>)keys);
@@ -935,11 +938,46 @@ public sealed class InMemoryConfigStore : IConfigStore
             byScope.TryGetValue(node.Id, out var docList);
             layers.Add(new ConfigLayer(
                 node,
-                docList ?? new List<ConfigDocument>(),
+                docList ?? [],
                 index++));
         }
 
         return layers;
+    }
+
+    public Task<ScopeNode> CreateScopeAsync(string kind, string name, Guid? parentId, IReadOnlyDictionary<string, string>? labels, CancellationToken ct)
+    {
+        // compute a unique key: kind:slug
+        static string Slug(string s) => new string(s.Trim().ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray());
+        var baseKey = $"{kind}:{Slug(name)}";
+        var key = baseKey;
+        var i = 1;
+        while (_scopeByKey.ContainsKey(key))
+        {
+            key = $"{baseKey}-{i++}";
+        }
+
+        var id = Guid.NewGuid();
+        var node = ScopeNode.Create(id, key, kind, name, parentId, labels ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+        lock (_gate)
+        {
+            _scopeByKey[key] = node;
+            _graph.Add(node);
+        }
+        return Task.FromResult(node);
+    }
+
+    public Task<string> CreateNamespaceAsync(string name, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("name required", nameof(name));
+        }
+        lock (_gate)
+        {
+            _additionalNamespaces.Add(name);
+        }
+        return Task.FromResult(name);
     }
 
     private IEnumerable<ScopeNode> GatherScopeNodes(ScopeContext scope)
@@ -1030,7 +1068,7 @@ public sealed class InMemoryConfigStore : IConfigStore
 
     private void Add(string ns, ConfigDocument doc)
     {
-        var list = _docsByNamespace.GetOrAdd(ns, _ => new List<ConfigDocument>());
+        var list = _docsByNamespace.GetOrAdd(ns, _ => []);
         list.Add(doc);
         Interlocked.Increment(ref _revision);
     }

@@ -15,7 +15,8 @@ public sealed class InMemoryConfigStoreTinyBddTests(Xunit.Abstractions.ITestOutp
     public Task Read_ReturnsOrderedLayers()
         => Given("store with default seed", BuildState)
            .Then("revision watermark is non-zero", s => s.Snapshot.Revision >= 3)
-           .And("layers are ordered from global to environment", s => s.Snapshot.Layers.Select(l => l.Scope.Kind).SequenceEqual(new[] { "global", "division", "org", "site", "app", "environment" }))
+           .And("layers are ordered from global to environment", s => s.Snapshot.Layers.Select(l => l.Scope.Kind).SequenceEqual(["global", "division", "org", "site", "app", "environment"
+           ]))
            .And("site layer overrides welcome flag", s => s.Snapshot.Layers.First(l => l.Scope.Kind == "site").Documents.First().ContentJson.Contains("\"welcome\":false"))
            .AssertPassed();
 
@@ -50,7 +51,7 @@ public sealed class InMemoryConfigStoreTinyBddTests(Xunit.Abstractions.ITestOutp
                 ["org"] = "northwind",
                 ["site"] = "seattle-hq"
             },
-            Tags: Array.Empty<string>());
+            Tags: []);
 
         var snapshot = store.ReadAsync(scope, "ui", CancellationToken.None).GetAwaiter().GetResult();
         return new StoreState(store, scope, snapshot);

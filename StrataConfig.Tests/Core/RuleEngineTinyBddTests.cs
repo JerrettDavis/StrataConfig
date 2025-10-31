@@ -55,7 +55,7 @@ public sealed class RuleEngineTinyBddTests(Xunit.Abstractions.ITestOutputHelper 
                 AppName: "Strata.Admin",
                 AppVersion: null,
                 Dimensions: new Dictionary<string, string>(),
-                Tags: new[] { "beta" }),
+                Tags: ["beta"]),
             Namespace: "ui");
 
         return new RuleContextState(new RuleEngine(), doc, rules, ctx);
@@ -81,7 +81,7 @@ public sealed class RuleEngineTinyBddTests(Xunit.Abstractions.ITestOutputHelper 
                 AppName: "Strata.Admin",
                 AppVersion: null,
                 Dimensions: new Dictionary<string, string>(),
-                Tags: Array.Empty<string>()),
+                Tags: []),
             Namespace: "ui");
 
         return new RuleContextState(new RuleEngine(), doc, rules, ctx);
@@ -107,7 +107,7 @@ public sealed class RuleEngineTinyBddTests(Xunit.Abstractions.ITestOutputHelper 
                 AppName: "Strata.Admin",
                 AppVersion: null,
                 Dimensions: new Dictionary<string, string>(),
-                Tags: Array.Empty<string>()),
+                Tags: []),
             Namespace: "ui");
 
         return new RuleContextState(new RuleEngine(), doc, rules, ctx);

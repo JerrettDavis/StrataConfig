@@ -15,9 +15,26 @@
                 <option value="@ns">@ns</option>
             }
         </select>
+        <div class="input-group input-group-sm mt-1">
+            <input class="form-control" placeholder="New namespace" @bind="_newNamespaceName" />
+            <button class="btn btn-outline-secondary" @onclick="CreateNamespace" disabled="@string.IsNullOrWhiteSpace(_newNamespaceName)">Add</button>
+        </div>
 
         <h3>Scope</h3>
-        <ScopeTree Nodes="_scopeTree" SelectedScopeId="_selectedScopeId" OnScopeSelected="OnScopeSelected" />
+        <ScopeTree Nodes="RootScopeNodes" SelectedScopeId="_selectedScopeId" OnScopeSelected="OnScopeSelected" />
+
+        <h3 class="mt-3">Environment</h3>
+        <select class="form-select" @onchange="OnEnvironmentChanged" value="@_selectedEnvironmentId">
+            <option value="">-- choose --</option>
+            @foreach (var env in _scopeTree.SelectMany(Flatten).Where(n => string.Equals(n.Kind, "environment", StringComparison.OrdinalIgnoreCase)))
+            {
+                <option value="@env.Id">@env.Name</option>
+            }
+        </select>
+        <div class="input-group input-group-sm mt-1">
+            <input class="form-control" placeholder="New environment" @bind="_newEnvironmentName" />
+            <button class="btn btn-outline-secondary" @onclick="CreateEnvironment" disabled="@string.IsNullOrWhiteSpace(_newEnvironmentName)">Add</button>
+        </div>
     </aside>
 
     <section class="content">
@@ -72,12 +89,69 @@
                             <button type="button" class="btn btn-sm @( _editorMode == EditorMode.Form ? "btn-primary" : "btn-outline-primary")" @onclick="(() => SwitchEditor(EditorMode.Form))">Form</button>
                             <button type="button" class="btn btn-sm @( _editorMode == EditorMode.Json ? "btn-primary" : "btn-outline-primary")" @onclick="(() => SwitchEditor(EditorMode.Json))">JSON</button>
                         </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" title="Seed fields from template schema" @onclick="SeedFromTemplate">Seed from template</button>
                     </div>
                     @if (!string.IsNullOrWhiteSpace(_editorError))
                     {
                         <div class="alert alert-warning">@_editorError</div>
                     }
-                    @if (_editorMode == EditorMode.Json) {<textarea class="form-control code editor-area" rows="18" @bind="_editorText"></textarea>} else {<div class="property-grid">@foreach (var entry in _formEntries){<div class="prop-row"><input class="form-control prop-key" placeholder="key (dot.path)" @bind="entry.Key" @bind:event="oninput" /><input class="form-control prop-val" placeholder="value" @bind="entry.Value" @bind:event="oninput" /><button type="button" class="btn btn-outline-danger btn-sm" @onclick="(() => RemoveFormEntry(entry))">×</button></div>}<div><button type="button" class="btn btn-outline-secondary btn-sm" @onclick="AddFormEntry">Add property</button></div></div>}
+                    @if (_editorMode == EditorMode.Json)
+                    {
+                        <textarea class="form-control code editor-area" rows="18" @bind="_editorText"></textarea>
+                    }
+                    else
+                    {
+                        <div class="schema-form">
+                            @if (_schemaFields.Count > 0)
+                            {
+                                <h6>Template Fields</h6>
+                            }
+                            @foreach (var field in _schemaFields)
+                            {
+                                <div class="form-row">
+                                    <label class="form-label">@field.Key</label>
+                                    @if (string.Equals(field.Type, "boolean", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <input type="checkbox" class="form-check-input" checked="@IsTrue(field.Value)" @onchange="(e => ToggleBoolean(field, e))" />
+                                    }
+                                    else if (string.Equals(field.Type, "number", StringComparison.OrdinalIgnoreCase) || string.Equals(field.Type, "integer", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <input type="number" class="form-control" @bind="field.Value" @bind:event="oninput" />
+                                    }
+                                    else if (field.Enum is not null && field.Enum.Count > 0)
+                                    {
+                                        <select class="form-select" @onchange="(e => field.Value = e.Value?.ToString() ?? string.Empty)">
+                                            <option value=""></option>
+                                            @foreach (var ev in field.Enum)
+                                            {
+                                                <option selected="@(string.Equals(field.Value, ev, StringComparison.OrdinalIgnoreCase))" value="@ev">@ev</option>
+                                            }
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        <input class="form-control" @bind="field.Value" @bind:event="oninput" />
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <div class="mt-3">
+                            <h6>Custom Properties</h6>
+                            <div class="property-grid">
+                                @foreach (var entry in _formEntries)
+                                {
+                                    <div class="prop-row">
+                                        <input class="form-control prop-key" placeholder="key (dot.path)" @bind="entry.Key" @bind:event="oninput" />
+                                        <input class="form-control prop-val" placeholder="value" @bind="entry.Value" @bind:event="oninput" />
+                                        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="(() => RemoveFormEntry(entry))">×</button>
+                                    </div>
+                                }
+                                <div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="AddFormEntry">Add property</button>
+                                </div>
+                            </div>
+                        </div>
+                    }
                     <div class="mt-2 d-flex gap-2">
                         <button class="btn btn-success" @onclick="SaveDocument">Save</button>
                         <button class="btn btn-danger" @onclick="DeleteDocument">Delete</button>
@@ -166,12 +240,16 @@
 </div>
 
 @code {
-    private IReadOnlyList<string> _namespaces = Array.Empty<string>();
-    private IReadOnlyList<TemplateDto> _templates = Array.Empty<TemplateDto>();
-    private IReadOnlyList<ScopeNodeDto> _scopeTree = Array.Empty<ScopeNodeDto>();
+    private IReadOnlyList<ScopeNodeDto> RootScopeNodes
+        => _scopeTree.Where(n => !string.Equals(n.Kind, "environment", StringComparison.OrdinalIgnoreCase)
+                                  && !string.Equals(n.Kind, "app", StringComparison.OrdinalIgnoreCase)).ToList();
+    private IReadOnlyList<string> _namespaces = [];
+    private IReadOnlyList<TemplateDto> _templates = [];
+    private IReadOnlyList<ScopeNodeDto> _scopeTree = [];
     private string? _selectedNamespace;
     private Guid? _selectedScopeId;
-    private List<ConfigDocumentDto> _documents = new();
+    private Guid? _selectedEnvironmentId;
+    private List<ConfigDocumentDto> _documents = [];
     private ConfigDocumentDto? _activeDoc;
     private string _editorText = "";
     private string _activeTemplateRef = "";
@@ -201,6 +279,19 @@
     {
         _selectedScopeId = node.Id;
         await RefreshListAsync();
+    }
+
+    private Task OnEnvironmentChanged(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var id))
+        {
+            _selectedEnvironmentId = id;
+        }
+        else
+        {
+            _selectedEnvironmentId = null;
+        }
+        return Task.CompletedTask;
     }
 
     private async Task RefreshListAsync()
@@ -316,6 +407,25 @@
     private void OpenImport() => _showImport = true;
     private void CloseImport() { _showImport = false; _importText = string.Empty; }
 
+    private string _newNamespaceName = string.Empty;
+    private async Task CreateNamespace()
+    {
+        var created = await Api.CreateNamespaceAsync(_newNamespaceName);
+        _newNamespaceName = string.Empty;
+        _namespaces = await Api.GetNamespacesAsync();
+        _selectedNamespace = created;
+        await RefreshListAsync();
+    }
+
+    private string _newEnvironmentName = string.Empty;
+    private async Task CreateEnvironment()
+    {
+        var created = await Api.CreateScopeAsync("environment", _newEnvironmentName, null);
+        _newEnvironmentName = string.Empty;
+        _scopeTree = await Api.GetScopeTreeAsync();
+        _selectedEnvironmentId = created.Id;
+    }
+
     private async Task DoImport()
     {
         if (!_canList) return;
@@ -363,8 +473,9 @@
     }
     private enum EditorMode { Json, Form }
     private EditorMode _editorMode = EditorMode.Json;
-    private List<FormEntry> _formEntries = new();
-    private List<ConfigDocumentDto> _diffCandidates = new();
+    private List<FormEntry> _formEntries = [];
+    private List<SchemaField> _schemaFields = [];
+    private List<ConfigDocumentDto> _diffCandidates = [];
     private string _diffFilter = string.Empty;
     private bool _showClone;
     private Guid? _cloneScopeId;
@@ -404,6 +515,11 @@
     private void SyncEditorTextFromForm()
     {
         var root = new JsonObject();
+        foreach (var f in _schemaFields)
+        {
+            if (string.IsNullOrWhiteSpace(f.Key)) continue;
+            SetValueByPath(root, f.Key, f.Value ?? string.Empty);
+        }
         foreach (var e in _formEntries)
         {
             if (string.IsNullOrWhiteSpace(e.Key)) continue;
@@ -465,7 +581,104 @@
             foreach (var i in Flatten(c)) yield return i;
     }
 
+    private static bool IsTrue(string? s) => string.Equals(s, "true", StringComparison.OrdinalIgnoreCase);
+    private static void ToggleBoolean(SchemaField f, ChangeEventArgs e)
+        => f.Value = IsTrue(e.Value?.ToString() ?? "false") ? "true" : "false";
+
+    private void SeedFromTemplate()
+    {
+        var t = _templates.FirstOrDefault(x => string.Equals(x.Id, _activeTemplateRef, StringComparison.OrdinalIgnoreCase));
+        if (t is null || string.IsNullOrWhiteSpace(t.JsonSchema))
+        {
+            return;
+        }
+
+        try
+        {
+            var root = JsonNode.Parse(t.JsonSchema) as JsonObject;
+            if (root is null) return;
+            var props = root["properties"] as JsonObject;
+            if (props is null) return;
+
+            JsonObject? current = null;
+            try { current = JsonNode.Parse(_editorText) as JsonObject; } catch { current = null; }
+
+            _schemaFields.Clear();
+            foreach (var prop in props)
+            {
+                var pName = prop.Key;
+                if (prop.Value is JsonObject def)
+                {
+                    var type = def["type"]?.ToString() ?? "string";
+                    if (string.Equals(type, "object", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var innerProps = def["properties"] as JsonObject;
+                        if (innerProps is not null)
+                        {
+                            foreach (var inner in innerProps)
+                            {
+                                var fieldKey = $"{pName}.{inner.Key}";
+                                var innerType = (inner.Value as JsonObject)?["type"]?.ToString() ?? "string";
+                                var ev = ExtractEnum(inner.Value as JsonObject);
+                                var val = ExtractValue(current, fieldKey);
+                                _schemaFields.Add(new SchemaField { Key = fieldKey, Type = NormalizeType(innerType), Enum = ev, Value = val });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var ev = ExtractEnum(def);
+                        var val = ExtractValue(current, pName);
+                        _schemaFields.Add(new SchemaField { Key = pName, Type = NormalizeType(type), Enum = ev, Value = val });
+                    }
+                }
+            }
+        }
+        catch { }
+    }
+
+    private static string NormalizeType(string t)
+        => string.Equals(t, "integer", StringComparison.OrdinalIgnoreCase) ? "integer"
+         : string.Equals(t, "number", StringComparison.OrdinalIgnoreCase) ? "number"
+         : string.Equals(t, "boolean", StringComparison.OrdinalIgnoreCase) ? "boolean"
+         : "string";
+
+    private static List<string>? ExtractEnum(JsonObject? def)
+    {
+        var arr = def?["enum"] as JsonArray;
+        if (arr is null) return null;
+        var list = new List<string>();
+        foreach (var n in arr) { if (n is not null) list.Add(n.ToString()); }
+        return list.Count == 0 ? null : list;
+    }
+
+    private static string ExtractValue(JsonObject? current, string path)
+    {
+        if (current is null) return string.Empty;
+        var parts = path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        JsonNode? node = current;
+        foreach (var p in parts)
+        {
+            if (node is JsonObject o && o[p] is JsonNode next) node = next; else return string.Empty;
+        }
+        if (node is JsonValue v) return v.ToJsonString().Trim('"');
+        return node?.ToJsonString() ?? string.Empty;
+    }
+
+    private sealed class SchemaField
+    {
+        public string Key { get; set; } = string.Empty;
+        public string Type { get; set; } = "string";
+        public List<string>? Enum { get; set; }
+        public string Value { get; set; } = string.Empty;
+    }
+
     private sealed class FormEntry { public string Key { get; set; } = string.Empty; public string Value { get; set; } = string.Empty; }
 }
+
+
+
+
+
 
 

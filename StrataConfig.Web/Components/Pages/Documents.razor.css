@@ -67,6 +67,10 @@ textarea.editor-area {
 .prop-key { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .prop-val { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
+.schema-form { display: flex; flex-direction: column; gap: .5rem; }
+.form-row { display: grid; grid-template-columns: 1fr 2fr; gap: .5rem; align-items: center; }
+.form-label { font-size: .85rem; color: #445; }
+
 .import-modal {
     position: fixed;
     left: 50%;

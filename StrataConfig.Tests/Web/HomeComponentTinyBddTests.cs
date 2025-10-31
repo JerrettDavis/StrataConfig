@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Bunit;
@@ -19,20 +17,28 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
     [Fact]
     public Task ScenarioSelection_UpdatesNamespace()
         => Given("rendered Home component", RenderHome)
-           .When("choosing the Berlin Ops scenario", state => SelectScenario(state, "Berlin Ops Dashboards"))
-           .Then("observability namespace requested", state => state.Api.LastRequestedNamespace == "observability")
-           .And("active scenario text updated", state => state.Cut.Markup.Contains("Berlin Ops Dashboards", StringComparison.Ordinal))
-           .And("dispose context", state => { state.Context.Dispose(); return true; })
-           .AssertPassed();
+            .When("choosing the Berlin Ops scenario", state => SelectScenario(state, "Berlin Ops Dashboards"))
+            .Then("observability namespace requested", state => state.Api.LastRequestedNamespace == "observability")
+            .And("active scenario text updated", state => state.Cut.Markup.Contains("Berlin Ops Dashboards", StringComparison.Ordinal))
+            .And("dispose context", state =>
+            {
+                state.Context.Dispose();
+                return true;
+            })
+            .AssertPassed();
 
     [Scenario("Tag toggling pushes tags into resolve context")]
     [Fact]
     public Task TagToggle_ForwardsTags()
         => Given("rendered Home component", RenderHome)
-           .When("activating the beta tag", state => ToggleTag(state, "beta"))
-           .Then("resolve call contains beta tag", state => state.Api.ResolveCalls.Last().Tags.Contains("beta"))
-           .And("dispose context", state => { state.Context.Dispose(); return true; })
-           .AssertPassed();
+            .When("activating the beta tag", state => ToggleTag(state, "beta"))
+            .Then("resolve call contains beta tag", state => state.Api.ResolveCalls.Last().Tags.Contains("beta"))
+            .And("dispose context", state =>
+            {
+                state.Context.Dispose();
+                return true;
+            })
+            .AssertPassed();
 
     private static TestState RenderHome()
     {
@@ -41,10 +47,7 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
         ctx.Services.AddLogging();
 
         var cut = ctx.RenderComponent<Home>();
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Contains("Layered Documents", cut.Markup, StringComparison.Ordinal);
-        });
+        cut.WaitForAssertion(() => { Assert.Contains("Layered Documents", cut.Markup, StringComparison.Ordinal); });
 
         var api = (FakeConfigApiClient)ctx.Services.GetRequiredService<IConfigApiClient>();
         return new TestState(ctx, api, cut);
@@ -92,17 +95,17 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
         public FakeConfigApiClient()
         {
             _scopeTree = BuildScopeTree(out _nodeByKey);
-            _namespaces = new[] { "ui", "observability", "pricing" };
+            _namespaces = ["ui", "observability", "pricing"];
             _documentsByNamespace = BuildDocuments();
             _resolvedByNamespace = BuildResolved();
         }
 
         public string? LastRequestedNamespace { get; private set; }
         public IReadOnlyDictionary<string, string>? LastRequestedDimensions { get; private set; }
-        public List<ResolveScopeContext> ResolveCalls { get; } = new();
+        public List<ResolveScopeContext> ResolveCalls { get; } = [];
 
         public Task<IReadOnlyList<TemplateDto>> GetTemplatesAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<TemplateDto>>(Array.Empty<TemplateDto>());
+            => Task.FromResult<IReadOnlyList<TemplateDto>>([]);
 
         public Task<IReadOnlyList<string>> GetNamespacesAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(_namespaces);
@@ -149,7 +152,14 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
             return Task.FromResult(doc);
         }
 
-        public Task<ConfigDocumentDto> UpsertDocumentAsync(Guid? id, Guid scopeId, string ns, string templateRef, JsonNode content, string updatedBy, CancellationToken cancellationToken = default)
+        public Task<ConfigDocumentDto> UpsertDocumentAsync(
+            Guid? id,
+            Guid scopeId,
+            string ns,
+            string templateRef,
+            JsonNode content,
+            string updatedBy,
+            CancellationToken cancellationToken = default)
         {
             var now = DateTimeOffset.UtcNow;
             var snap = _documentsByNamespace[ns];
@@ -171,7 +181,8 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
             {
                 var docs = (layer.Documents as List<ConfigDocumentDto>)!;
                 var idx = docs.FindIndex(d => d.Id == assignedId);
-                if (idx >= 0) docs[idx] = newDoc; else docs.Add(newDoc);
+                if (idx >= 0) docs[idx] = newDoc;
+                else docs.Add(newDoc);
             }
 
             return Task.FromResult(newDoc);
@@ -189,10 +200,15 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
                     return Task.FromResult(true);
                 }
             }
+
             return Task.FromResult(false);
         }
 
-        public async Task<ConfigDocumentDto> CloneDocumentAsync(Guid sourceId, Guid destinationScopeId, string updatedBy, CancellationToken cancellationToken = default)
+        public async Task<ConfigDocumentDto> CloneDocumentAsync(
+            Guid sourceId,
+            Guid destinationScopeId,
+            string updatedBy,
+            CancellationToken cancellationToken = default)
         {
             var src = await GetDocumentAsync(sourceId, cancellationToken) ?? throw new InvalidOperationException();
             var content = JsonNode.Parse(src.Content.ToJsonString()) ?? new JsonObject();
@@ -202,7 +218,10 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
         public Task<IReadOnlyList<ConfigDocumentDto>> ExportAsync(string ns, Guid? scopeId, CancellationToken cancellationToken = default)
             => ListDocumentsAsync(ns, scopeId, cancellationToken);
 
-        public async Task<IReadOnlyList<ConfigDocumentDto>> ImportAsync(string ns, IReadOnlyList<ImportDocumentRequestDto> documents, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<ConfigDocumentDto>> ImportAsync(
+            string ns,
+            IReadOnlyList<ImportDocumentRequestDto> documents,
+            CancellationToken cancellationToken = default)
         {
             var results = new List<ConfigDocumentDto>();
             foreach (var d in documents)
@@ -210,28 +229,53 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
                 var saved = await UpsertDocumentAsync(d.Id, d.ScopeId, ns, d.TemplateRef, d.Content, d.UpdatedBy ?? "tests", cancellationToken);
                 results.Add(saved);
             }
+
             return results;
         }
 
-        public Task<DiffResponseDto?> DiffAsync(JsonNode? aContent, Guid? aId, JsonNode? bContent, Guid? bId, CancellationToken cancellationToken = default)
+        public Task<DiffResponseDto?> DiffAsync(
+            JsonNode? aContent,
+            Guid? aId,
+            JsonNode? bContent,
+            Guid? bId,
+            CancellationToken cancellationToken = default)
         {
             // minimal stub: return empty diff when payloads are same string, else changed at root
-            if (aId.HasValue && bId.HasValue && aId == bId) return Task.FromResult<DiffResponseDto?>(new(new List<string>(), new List<string>(), new List<DiffChangedEntryDto>()));
-            if (aContent?.ToJsonString() == bContent?.ToJsonString()) return Task.FromResult<DiffResponseDto?>(new(new List<string>(), new List<string>(), new List<DiffChangedEntryDto>()));
-            return Task.FromResult<DiffResponseDto?>(new(new List<string>(), new List<string>(), new List<DiffChangedEntryDto> { new("$", aContent?.ToJsonString(), bContent?.ToJsonString()) }));
+            if (aId.HasValue && bId.HasValue && aId == bId)
+                return Task.FromResult<DiffResponseDto?>(new(new List<string>(), new List<string>(), new List<DiffChangedEntryDto>()));
+            if (aContent?.ToJsonString() == bContent?.ToJsonString())
+                return Task.FromResult<DiffResponseDto?>(new(new List<string>(), new List<string>(), new List<DiffChangedEntryDto>()));
+            return Task.FromResult<DiffResponseDto?>(new(new List<string>(), new List<string>(),
+                new List<DiffChangedEntryDto> { new("$", aContent?.ToJsonString(), bContent?.ToJsonString()) }));
+        }
+
+        public Task<ScopeNodeDto> CreateScopeAsync(
+            string kind,
+            string name,
+            Guid? parentId,
+            IDictionary<string, string>? labels = null,
+            CancellationToken cancellationToken = default)
+        {
+            var id = Guid.NewGuid();
+            var parent = parentId;
+            var node = new ScopeNodeDto(id, $"{kind}:{name.ToLowerInvariant().Replace(' ', '-')}", kind, name, parent, new Dictionary<string, string>(),
+                new List<ScopeNodeDto>());
+            // naive: append under first root if no parent; not used by current tests
+            return Task.FromResult(node);
         }
 
         private static IEnumerable<ScopeNodeDto> Flatten(ScopeNodeDto n)
         {
             yield return n;
             foreach (var c in n.Children)
-                foreach (var i in Flatten(c)) yield return i;
+            foreach (var i in Flatten(c))
+                yield return i;
         }
 
         private static string GuessNamespace(ConfigDocumentDto doc)
             => doc.TemplateRef.Contains("ui", StringComparison.OrdinalIgnoreCase) ? "ui"
-             : doc.TemplateRef.Contains("observability", StringComparison.OrdinalIgnoreCase) ? "observability"
-             : "pricing";
+                : doc.TemplateRef.Contains("observability", StringComparison.OrdinalIgnoreCase) ? "observability"
+                : "pricing";
 
         private Dictionary<string, NamespaceDocumentsDto> BuildDocuments()
         {
@@ -373,7 +417,7 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
                     name,
                     parentId,
                     new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
-                    (children ?? Array.Empty<ScopeNodeDto>()).ToList());
+                    (children ?? []).ToList());
                 nodes[key] = node;
                 return node;
             }
@@ -390,14 +434,14 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
             var robotId = Guid.Parse("40000000-0000-0000-0000-000000000001");
 
             var robot = Create("device:line-ber-robot", "device", "Line Robot", robotId, berlinId);
-            var berlin = Create("site:berlin-fulfillment", "site", "Berlin Fulfillment", berlinId, fabrikamId, new[] { robot });
+            var berlin = Create("site:berlin-fulfillment", "site", "Berlin Fulfillment", berlinId, fabrikamId, [robot]);
             var seattle = Create("site:seattle-hq", "site", "Seattle HQ", seattleId, northwindId);
             var london = Create("site:london-hub", "site", "London Hub", londonId, contosoId);
-            var northwind = Create("org:northwind", "org", "Northwind", northwindId, retailId, new[] { seattle });
-            var contoso = Create("org:contoso", "org", "Contoso", contosoId, retailId, new[] { london });
-            var fabrikam = Create("org:fabrikam", "org", "Fabrikam", fabrikamId, operationsId, new[] { berlin });
-            var retail = Create("division:retail", "division", "Retail", retailId, globalId, new[] { northwind, contoso });
-            var operations = Create("division:operations", "division", "Operations", operationsId, globalId, new[] { fabrikam });
+            var northwind = Create("org:northwind", "org", "Northwind", northwindId, retailId, [seattle]);
+            var contoso = Create("org:contoso", "org", "Contoso", contosoId, retailId, [london]);
+            var fabrikam = Create("org:fabrikam", "org", "Fabrikam", fabrikamId, operationsId, [berlin]);
+            var retail = Create("division:retail", "division", "Retail", retailId, globalId, [northwind, contoso]);
+            var operations = Create("division:operations", "division", "Operations", operationsId, globalId, [fabrikam]);
             var environment = Create("env:Development", "environment", "Development", Guid.Parse("50000000-0000-0000-0000-000000000001"), null);
 
             var global = new ScopeNodeDto(
@@ -407,13 +451,15 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
                 "Global",
                 null,
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
-                new[] { retail, operations });
+                [retail, operations]);
             nodes["global"] = global;
 
             var app = Create("app:Strata.Admin", "app", "Strata.Admin", Guid.Parse("60000000-0000-0000-0000-000000000001"), null);
 
             index = nodes;
-            return new[] { global, environment, app };
+            return [global, environment, app];
         }
+
+        public Task<string> CreateNamespaceAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(name);
     }
 }

@@ -57,7 +57,7 @@ public sealed class AutoHostFixture : IAsyncLifetime
         {
             try
             {
-                var task = (Task)mi.Invoke(app, new object?[] { resourceName })!;
+                var task = (Task)mi.Invoke(app, [resourceName])!;
                 await task.ConfigureAwait(false);
                 var resultProp = task.GetType().GetProperty("Result");
                 var uri = (Uri?)resultProp?.GetValue(task);
@@ -68,7 +68,7 @@ public sealed class AutoHostFixture : IAsyncLifetime
             // Try with scheme
             try
             {
-                var task = (Task)mi.Invoke(app, new object?[] { resourceName, "http" })!;
+                var task = (Task)mi.Invoke(app, [resourceName, "http"])!;
                 await task.ConfigureAwait(false);
                 var resultProp = task.GetType().GetProperty("Result");
                 var uri = (Uri?)resultProp?.GetValue(task);
@@ -90,14 +90,14 @@ public sealed class AutoHostFixture : IAsyncLifetime
 
             // Try: GetResourceByName(resourceName) → Resource
             var getRes = rnsType.GetMethod("GetResourceByName");
-            var res = getRes?.Invoke(rns, new object?[] { resourceName });
+            var res = getRes?.Invoke(rns, [resourceName]);
             if (res is null) return null;
 
             // Look for GetAddressAsync("http") on the resource
             var getAddr = res.GetType().GetMethod("GetAddressAsync");
             if (getAddr is not null)
             {
-                var task = (Task)getAddr.Invoke(res, new object?[] { "http" })!;
+                var task = (Task)getAddr.Invoke(res, ["http"])!;
                 await task.ConfigureAwait(false);
                 var resultProp = task.GetType().GetProperty("Result");
                 var uri = (Uri?)resultProp?.GetValue(task);

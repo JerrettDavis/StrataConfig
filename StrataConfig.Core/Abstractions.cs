@@ -77,6 +77,12 @@ public interface IConfigStore
     Task<IReadOnlyList<string>> GetNamespacesAsync(CancellationToken ct);
     Task<IReadOnlyList<ScopeNode>> GetScopeNodesAsync(CancellationToken ct);
     Task<IReadOnlyList<Rule>> GetRulesAsync(Guid scopeId, CancellationToken ct);
+
+    // Scope management (minimal)
+    Task<ScopeNode> CreateScopeAsync(string kind, string name, Guid? parentId, IReadOnlyDictionary<string, string>? labels, CancellationToken ct);
+
+    // Namespaces
+    Task<string> CreateNamespaceAsync(string name, CancellationToken ct);
 }
 
 public interface IMergeEngine

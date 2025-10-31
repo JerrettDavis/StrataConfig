@@ -25,7 +25,7 @@ public sealed class ConfigApiClient : IConfigApiClient
             "/api/templates",
             SerializerOptions,
             cancellationToken);
-        return items ?? new List<TemplateDto>();
+        return items ?? [];
     }
 
     public async Task<IReadOnlyList<string>> GetNamespacesAsync(CancellationToken cancellationToken = default)
@@ -34,7 +34,7 @@ public sealed class ConfigApiClient : IConfigApiClient
             "/api/namespaces",
             SerializerOptions,
             cancellationToken);
-        return items ?? new List<string>();
+        return items ?? [];
     }
 
     public async Task<IReadOnlyList<ScopeNodeDto>> GetScopeTreeAsync(CancellationToken cancellationToken = default)
@@ -43,7 +43,7 @@ public sealed class ConfigApiClient : IConfigApiClient
             "/api/scopes",
             SerializerOptions,
             cancellationToken);
-        return items ?? new List<ScopeNodeDto>();
+        return items ?? [];
     }
 
     public async Task<NamespaceDocumentsDto?> GetNamespaceDocumentsAsync(
@@ -99,7 +99,7 @@ public sealed class ConfigApiClient : IConfigApiClient
         };
         var uri = QueryHelpers.AddQueryString("/api/documents", query);
         var items = await _httpClient.GetFromJsonAsync<List<ConfigDocumentDto>>(uri, SerializerOptions, cancellationToken);
-        return items ?? new List<ConfigDocumentDto>();
+        return items ?? [];
     }
 
     public async Task<ConfigDocumentDto?> GetDocumentAsync(Guid id, CancellationToken cancellationToken = default)
@@ -144,7 +144,7 @@ public sealed class ConfigApiClient : IConfigApiClient
         };
         var uri = QueryHelpers.AddQueryString($"/api/namespaces/{ns}/export", query);
         var items = await _httpClient.GetFromJsonAsync<List<ConfigDocumentDto>>(uri, SerializerOptions, cancellationToken);
-        return items ?? new List<ConfigDocumentDto>();
+        return items ?? [];
     }
 
     public async Task<IReadOnlyList<ConfigDocumentDto>> ImportAsync(string ns, IReadOnlyList<ImportDocumentRequestDto> documents, CancellationToken cancellationToken = default)
@@ -152,7 +152,7 @@ public sealed class ConfigApiClient : IConfigApiClient
         var payload = new ImportRequestDto(ns, documents);
         var response = await _httpClient.PostAsJsonAsync($"/api/namespaces/{ns}/import", payload, SerializerOptions, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<List<ConfigDocumentDto>>(SerializerOptions, cancellationToken)) ?? new List<ConfigDocumentDto>();
+        return (await response.Content.ReadFromJsonAsync<List<ConfigDocumentDto>>(SerializerOptions, cancellationToken)) ?? [];
     }
 
     public async Task<DiffResponseDto?> DiffAsync(JsonNode? aContent, Guid? aId, JsonNode? bContent, Guid? bId, CancellationToken cancellationToken = default)
@@ -165,5 +165,21 @@ public sealed class ConfigApiClient : IConfigApiClient
         var response = await _httpClient.PostAsJsonAsync("/api/documents/diff", payload, SerializerOptions, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<DiffResponseDto>(SerializerOptions, cancellationToken);
+    }
+
+    public async Task<ScopeNodeDto> CreateScopeAsync(string kind, string name, Guid? parentId, IDictionary<string, string>? labels = null, CancellationToken cancellationToken = default)
+    {
+        var payload = new { Kind = kind, Name = name, ParentId = parentId, Labels = labels ?? new Dictionary<string, string>() };
+        var res = await _httpClient.PostAsJsonAsync("/api/scopes", payload, SerializerOptions, cancellationToken);
+        res.EnsureSuccessStatusCode();
+        return (await res.Content.ReadFromJsonAsync<ScopeNodeDto>(SerializerOptions, cancellationToken))!;
+    }
+
+    public async Task<string> CreateNamespaceAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var payload = new { Name = name };
+        var res = await _httpClient.PostAsJsonAsync("/api/namespaces", payload, SerializerOptions, cancellationToken);
+        res.EnsureSuccessStatusCode();
+        return await res.Content.ReadFromJsonAsync<string>(SerializerOptions, cancellationToken) ?? name;
     }
 }

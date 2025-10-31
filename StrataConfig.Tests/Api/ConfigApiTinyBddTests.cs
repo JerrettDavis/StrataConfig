@@ -49,7 +49,8 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
     public Task NamespaceDocuments_ReturnLayers()
         => Given("API context", CreateApiContext)
            .When("fetching namespace documents", FetchNamespace)
-           .Then("layers ordered", r => r.Documents.Layers.Select(l => l.Scope.Kind).SequenceEqual(new[] { "global", "division", "org", "site", "app", "environment" }))
+           .Then("layers ordered", r => r.Documents.Layers.Select(l => l.Scope.Kind).SequenceEqual(["global", "division", "org", "site", "app", "environment"
+           ]))
            .And("site layer flips welcome flag", r => r.Documents.Layers.Single(l => l.Scope.Kind == "site").Documents.First().Content["featureFlags"]! ["welcome"]!.GetValue<bool>() == false)
            .And("resolve output honors overrides", r => r.Resolved["featureFlags.welcome"] == "true")
            .And("dispose factory", r => { r.Context.Dispose(); return true; })
@@ -122,7 +123,7 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
     private static TemplatesResult FetchTemplates(ApiContext context)
     {
         var templates = context.Client.GetFromJsonAsync<List<TemplateContract>>("/api/templates", SerializerOptions).GetAwaiter().GetResult()
-                        ?? new List<TemplateContract>();
+                        ?? [];
         return new TemplatesResult(context, templates);
     }
 
@@ -151,7 +152,7 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
                     ["site"] = "seattle-hq",
                     ["extra"] = "value"
                 },
-                Tags: new[] { "beta", "canary" }),
+                Tags: ["beta", "canary"]),
             Namespace: "ui");
 
         var resolveResponse = context.Client.PostAsJsonAsync("/api/config/resolve", resolvePayload, SerializerOptions).GetAwaiter().GetResult();
@@ -189,7 +190,7 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
                     ["site"] = "berlin-fulfillment",
                     ["device"] = "line-ber-robot"
                 },
-                Tags: Array.Empty<string>()),
+                Tags: []),
             Namespace: "observability");
 
         var resolveResponse = context.Client.PostAsJsonAsync("/api/config/resolve", resolvePayload, SerializerOptions).GetAwaiter().GetResult();
@@ -208,7 +209,7 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
 
     private static ScopesResult FetchScopes(ApiContext context)
     {
-        var tree = context.Client.GetFromJsonAsync<List<ScopeNodeContract>>("/api/scopes", SerializerOptions).GetAwaiter().GetResult() ?? new List<ScopeNodeContract>();
+        var tree = context.Client.GetFromJsonAsync<List<ScopeNodeContract>>("/api/scopes", SerializerOptions).GetAwaiter().GetResult() ?? [];
         var flattened = tree.SelectMany(Flatten).ToList();
         var target = flattened.First();
         var scopeById = context.Client.GetFromJsonAsync<ScopeNodeContract>($"/api/scopes/{target.Id}", SerializerOptions).GetAwaiter().GetResult();
@@ -251,7 +252,7 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
                     ["org"] = "northwind",
                     ["site"] = "seattle-hq"
                 },
-                Tags: new[] { "beta" }),
+                Tags: ["beta"]),
             Namespace: "ui");
 
         var resolveResponse = context.Client.PostAsJsonAsync("/api/config/resolve", resolvePayload, SerializerOptions).GetAwaiter().GetResult();
@@ -267,7 +268,7 @@ public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper o
         var response = context.Client.GetAsync("/weatherforecast").GetAwaiter().GetResult();
         response.EnsureSuccessStatusCode();
         var forecasts = response.Content.ReadFromJsonAsync<WeatherForecastContract[]>(SerializerOptions).GetAwaiter().GetResult()
-                        ?? Array.Empty<WeatherForecastContract>();
+                        ?? [];
         return new WeatherResult(context, response, forecasts);
     }
 

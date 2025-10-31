@@ -36,7 +36,7 @@ public sealed class ScopePath
 
     public ScopePath(IEnumerable<ScopeNode> segments)
     {
-        _segments = segments?.ToArray() ?? Array.Empty<ScopeNode>();
+        _segments = segments?.ToArray() ?? [];
     }
 
     public IReadOnlyList<ScopeNode> Segments => _segments;
@@ -73,7 +73,7 @@ public sealed class ScopeGraph
         {
             if (!_children.TryGetValue(parentId, out var list))
             {
-                list = new List<ScopeNode>();
+                list = [];
                 _children[parentId] = list;
             }
 

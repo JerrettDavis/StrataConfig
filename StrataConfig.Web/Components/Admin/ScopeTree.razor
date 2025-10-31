@@ -17,7 +17,7 @@
 </div>
 
 @code {
-    [Parameter] public IReadOnlyList<ScopeNodeDto> Nodes { get; set; } = Array.Empty<ScopeNodeDto>();
+    [Parameter] public IReadOnlyList<ScopeNodeDto> Nodes { get; set; } = [];
     [Parameter] public Guid? SelectedScopeId { get; set; }
     [Parameter] public EventCallback<ScopeNodeDto> OnScopeSelected { get; set; }
 
@@ -37,7 +37,7 @@
         builder.CloseElement();
         builder.CloseElement();
 
-        var children = node.Children ?? Array.Empty<ScopeNodeDto>();
+        var children = node.Children ?? [];
         if (children.Count > 0)
         {
             builder.OpenElement(seq++, "ul");

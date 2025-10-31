@@ -30,4 +30,8 @@ public interface IConfigApiClient
     Task<IReadOnlyList<ConfigDocumentDto>> ExportAsync(string ns, Guid? scopeId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ConfigDocumentDto>> ImportAsync(string ns, IReadOnlyList<ImportDocumentRequestDto> documents, CancellationToken cancellationToken = default);
     Task<DiffResponseDto?> DiffAsync(JsonNode? aContent, Guid? aId, JsonNode? bContent, Guid? bId, CancellationToken cancellationToken = default);
+
+    // Scopes
+    Task<ScopeNodeDto> CreateScopeAsync(string kind, string name, Guid? parentId, IDictionary<string, string>? labels = null, CancellationToken cancellationToken = default);
+    Task<string> CreateNamespaceAsync(string name, CancellationToken cancellationToken = default);
 }

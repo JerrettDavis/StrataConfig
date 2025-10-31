@@ -15,6 +15,13 @@
                 <h2>Scope Tree</h2>
                 <span class="panel-subtitle">Select a scope to inspect layered configuration.</span>
             </div>
+            <div class="namespace-picker">
+                <label class="visually-hidden">Add Environment</label>
+                <div class="input-group">
+                    <input class="form-control" placeholder="New environment" @bind="_newEnvironmentName" />
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CreateEnvironmentAsync" disabled="@string.IsNullOrWhiteSpace(_newEnvironmentName)">Add</button>
+                </div>
+            </div>
             <div class="quick-filters">
                 <button class="chip-button" type="button" @onclick="@(() => HandleQuickFilter(NorthwindFilter))">Northwind</button>
                 <button class="chip-button" type="button" @onclick="@(() => HandleQuickFilter(FabrikamFilter))">Fabrikam</button>
@@ -47,9 +54,14 @@
                 </div>
             </div>
 
-            <div class="context-chip">
-                <span>Environment:</span>
-                <strong>@_environment</strong>
+            <div class="namespace-picker">
+                <label for="envSelect">Environment</label>
+                <select id="envSelect" class="form-select" @onchange="HandleEnvironmentChanged" value="@_environment">
+                    @foreach (var env in _scopeTree.Where(n => string.Equals(n.Kind, "environment", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        <option value="@env.Name">@env.Name</option>
+                    }
+                </select>
             </div>
             @if (_selectedScope is not null)
             {
@@ -104,7 +116,7 @@
                 <h3>Layered Documents</h3>
                 <p class="subtitle">Ordered by precedence; later layers override earlier ones.</p>
                 <div class="layer-grid">
-                    @foreach (var layer in (_documents.Layers ?? Array.Empty<ConfigLayerDto>()).OrderBy(l => l.PrecedenceOrder))
+                    @foreach (var layer in (_documents.Layers ?? []).OrderBy(l => l.PrecedenceOrder))
                     {
                         <div class="layer-card">
                             <header>
@@ -113,7 +125,7 @@
                                 <small>@layer.Scope.Kind</small>
                             </header>
                             @{
-                                var documents = layer.Documents ?? Array.Empty<ConfigDocumentDto>();
+                                var documents = layer.Documents ?? [];
                             }
                             @if (documents.Count == 0)
                             {
@@ -187,9 +199,9 @@
 
     private readonly Dictionary<Guid, ScopeNodeDto> _scopeIndex = new();
     private readonly Dictionary<string, ScopeNodeDto> _scopeByKey = new(StringComparer.OrdinalIgnoreCase);
-    private IReadOnlyList<ScopeNodeDto> _scopeTree = Array.Empty<ScopeNodeDto>();
-    private IReadOnlyList<ScopeNodeDto> _filteredScopeTree = Array.Empty<ScopeNodeDto>();
-    private IReadOnlyList<string> _namespaces = Array.Empty<string>();
+    private IReadOnlyList<ScopeNodeDto> _scopeTree = [];
+    private IReadOnlyList<ScopeNodeDto> _filteredScopeTree = [];
+    private IReadOnlyList<string> _namespaces = [];
     private readonly HashSet<string> _activeTags = new(StringComparer.OrdinalIgnoreCase);
     private readonly string[] _availableTags = ["beta", "canary", "vip", "prod"];
     private readonly IReadOnlyList<SampleScenario> _sampleScenarios =
@@ -207,14 +219,14 @@
             Namespace: "observability",
             ScopeKey: "site:berlin-fulfillment",
             Description: "Warehouse telemetry overrides with robotics-specific alerting.",
-            Tags: Array.Empty<string>()),
+            Tags: []),
         new SampleScenario(
             Id: "pricing-london",
             Name: "London Pricing Adjustments",
             Namespace: "pricing",
             ScopeKey: "site:london-hub",
             Description: "Localized GBP pricing and delivery fees for the UK hub.",
-            Tags: Array.Empty<string>()),
+            Tags: []),
         new SampleScenario(
             Id: "observability-robot",
             Name: "Robot Escalation Rules",
@@ -235,6 +247,7 @@
     private Guid? _selectedScopeId;
     private ScopeNodeDto? _selectedScope;
     private string _environment = "Development";
+    private string _newEnvironmentName = string.Empty;
     private string _appName = "Strata.Admin";
     private string? _selectedNamespace;
     private bool _isLoading;
@@ -246,6 +259,33 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadInitialDataAsync();
+    }
+
+    private Task HandleEnvironmentChanged(ChangeEventArgs e)
+    {
+        var env = e.Value?.ToString();
+        if (!string.IsNullOrWhiteSpace(env))
+        {
+            _environment = env;
+            _ = RefreshDocumentsAsync();
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task CreateEnvironmentAsync()
+    {
+        try
+        {
+            var created = await Api.CreateScopeAsync("environment", _newEnvironmentName, null);
+            _newEnvironmentName = string.Empty;
+            await LoadInitialDataAsync();
+            _environment = created.Name;
+            await RefreshDocumentsAsync();
+        }
+        catch (Exception ex)
+        {
+            _loadError = ex.Message;
+        }
     }
 
     private async Task LoadInitialDataAsync()
@@ -267,9 +307,13 @@
             _scopeIndex.Clear();
             _scopeByKey.Clear();
             IndexScopeTree(_scopeTree);
-            _selectedScope = _scopeTree.FirstOrDefault();
+            var displayRoots = _scopeTree
+                .Where(n => !string.Equals(n.Kind, "environment", StringComparison.OrdinalIgnoreCase)
+                            && !string.Equals(n.Kind, "app", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            _selectedScope = displayRoots.FirstOrDefault();
             _selectedScopeId = _selectedScope?.Id;
-            _filteredScopeTree = _scopeTree;
+            _filteredScopeTree = displayRoots;
 
             if (_selectedScope is not null)
             {
@@ -397,9 +441,9 @@
     private IReadOnlyList<ScopeNodeDto> FilterTree(IReadOnlyList<ScopeNodeDto> nodes, string filter)
     {
         var matches = new List<ScopeNodeDto>();
-        foreach (var node in nodes ?? Array.Empty<ScopeNodeDto>())
+        foreach (var node in nodes ?? [])
         {
-            var children = node.Children ?? Array.Empty<ScopeNodeDto>();
+            var children = node.Children ?? [];
             var childMatches = FilterTree(children, filter);
             if (node.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) || childMatches.Count > 0)
             {
@@ -432,7 +476,7 @@
             _documents = documents;
 
             var tags = _activeTags.Count == 0
-                ? Array.Empty<string>()
+                ? []
                 : _activeTags.ToArray();
             var resolveContext = new ResolveScopeContext(
                 _environment,
@@ -491,7 +535,7 @@
         }) ?? "null";
     }
 
-    private readonly List<KeyValuePair<string, string>> _resolvedItems = new();
+    private readonly List<KeyValuePair<string, string>> _resolvedItems = [];
 
     private void RefreshResolvedView()
     {

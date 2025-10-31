@@ -72,13 +72,21 @@ public sealed record ImportRequest(
     string Namespace,
     IReadOnlyList<ImportDocumentRequest> Documents);
 
+public sealed record CreateScopeRequest(
+    string Kind,
+    string Name,
+    Guid? ParentId,
+    IReadOnlyDictionary<string, string>? Labels);
+
+public sealed record CreateNamespaceRequest(string Name);
+
 internal static class ApiModelMapper
 {
     public static TemplateResponse ToResponse(this Template template)
         => new(template.Id, template.SchemaVersion, template.JsonSchema, template.UIMetadata);
 
     public static ScopeNodeResponse ToFlatResponse(this ScopeNode node)
-        => node.ToResponse(Array.Empty<ScopeNodeResponse>());
+        => node.ToResponse([]);
 
     public static ScopeNodeResponse ToResponse(this ScopeNode node, IReadOnlyList<ScopeNodeResponse> children)
         => new(node.Id, node.Key, node.Kind, node.Name, node.ParentId, node.Labels, children);

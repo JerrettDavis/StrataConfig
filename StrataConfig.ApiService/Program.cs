@@ -72,6 +72,20 @@ app.MapGet("/api/namespaces", async (
     .WithDescription("Return available namespaces backed by the in-memory store.")
     .WithTags("Documents");
 
+// Create namespace
+app.MapPost("/api/namespaces", async (
+        CreateNamespaceRequest req,
+        IConfigStore store,
+        CancellationToken ct) =>
+    {
+        if (string.IsNullOrWhiteSpace(req.Name)) return Results.BadRequest(new { error = "Name is required." });
+        var name = await store.CreateNamespaceAsync(req.Name, ct);
+        return Results.Created($"/api/namespaces/{name}", name);
+    })
+    .WithName("CreateNamespace")
+    .WithSummary("Create a namespace placeholder")
+    .WithTags("Documents");
+
 app.MapGet("/api/templates/{id}", async (
         string id,
         IConfigStore store,
@@ -134,6 +148,23 @@ app.MapGet("/api/scopes/{id:guid}", async (
     .WithName("GetScopeById")
     .WithSummary("Get scope details")
     .WithDescription("Returns a single scope plus its child hierarchy, if found.")
+    .WithTags("Scopes");
+
+// Create scope
+app.MapPost("/api/scopes", async (
+        CreateScopeRequest req,
+        IConfigStore store,
+        CancellationToken ct) =>
+    {
+        if (string.IsNullOrWhiteSpace(req.Kind) || string.IsNullOrWhiteSpace(req.Name))
+        {
+            return Results.BadRequest(new { error = "Kind and Name are required." });
+        }
+        var created = await store.CreateScopeAsync(req.Kind, req.Name, req.ParentId, req.Labels, ct);
+        return Results.Created($"/api/scopes/{created.Id}", created.ToFlatResponse());
+    })
+    .WithName("CreateScope")
+    .WithSummary("Create a new scope node")
     .WithTags("Scopes");
 
 // Namespace documents explorer
@@ -467,7 +498,7 @@ static ScopeContext BuildScopeContext(HttpRequest request)
     }
 
     var tags = tagSet.Count == 0
-        ? Array.Empty<string>()
+        ? []
         : tagSet.ToArray();
 
     return new ScopeContext(

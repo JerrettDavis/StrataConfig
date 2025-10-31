@@ -111,7 +111,7 @@ public class FrontendE2ETests : IClassFixture<AutoHostFixture>
             await page.WaitForSelectorAsync(".namespace-picker select");
 
             // Switch to UI namespace
-            await page.SelectOptionAsync(".namespace-picker select", new[] { "ui" });
+            await page.SelectOptionAsync(".namespace-picker select", ["ui"]);
             await page.WaitForSelectorAsync(".namespace-description");
             var desc = await page.Locator(".namespace-description").InnerTextAsync();
             Assert.Contains("UI theme", desc, StringComparison.OrdinalIgnoreCase);

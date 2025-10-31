@@ -45,7 +45,7 @@ public sealed class MergeEngineTinyBddTests(Xunit.Abstractions.ITestOutputHelper
         }
         """)!;
 
-        return new MergeContext(new MergeEngine(), new[] { baseLayer, overrideLayer });
+        return new MergeContext(new MergeEngine(), [baseLayer, overrideLayer]);
     }
 
     private static MergeResult Merge(MergeContext ctx)
@@ -56,7 +56,7 @@ public sealed class MergeEngineTinyBddTests(Xunit.Abstractions.ITestOutputHelper
         var engine = new MergeEngine();
         var first = JsonNode.Parse("{ \"items\": [\"a\"] }")!;
         var second = JsonNode.Parse("{ \"items\": [\"a\", \"b\"] }")!;
-        var merged = engine.Merge(new[] { first, second });
+        var merged = engine.Merge([first, second]);
         return new MergeResult(engine, merged);
     }
 }
