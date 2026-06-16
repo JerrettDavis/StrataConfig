@@ -6,7 +6,7 @@ using TinyBDD.Xunit;
 namespace StrataConfig.Tests.Core;
 
 [Feature("Scope model utilities (TinyBDD)")]
-public sealed class ScopeModelsTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
+public sealed partial class ScopeModelsTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
 {
     [Scenario("ScopeGraph builds path and children collections")]
     [Fact]

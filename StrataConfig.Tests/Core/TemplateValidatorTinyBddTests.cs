@@ -6,7 +6,7 @@ using TinyBDD.Xunit;
 namespace StrataConfig.Tests.Core;
 
 [Feature("Template validation errors (TinyBDD)")]
-public sealed class TemplateValidatorTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
+public sealed partial class TemplateValidatorTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
 {
     [Scenario("Invalid document raises TemplateValidationException with errors populated")]
     [Fact]

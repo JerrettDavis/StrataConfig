@@ -9,9 +9,9 @@ using TinyBDD.Xunit;
 namespace StrataConfig.Tests.Web;
 
 [Feature("Home component interactivity (TinyBDD + bUnit)")]
-public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
+public sealed partial class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
 {
-    private sealed record TestState(TestContext Context, FakeConfigApiClient Api, IRenderedComponent<Home> Cut);
+    private sealed record TestState(BunitContext Context, FakeConfigApiClient Api, IRenderedComponent<Home> Cut);
 
     [Scenario("Selecting a sample scenario switches namespace and updates active banner")]
     [Fact]
@@ -42,11 +42,11 @@ public sealed class HomeComponentTinyBddTests(Xunit.Abstractions.ITestOutputHelp
 
     private static TestState RenderHome()
     {
-        var ctx = new TestContext();
+        var ctx = new BunitContext();
         ctx.Services.AddSingleton<IConfigApiClient, FakeConfigApiClient>();
         ctx.Services.AddLogging();
 
-        var cut = ctx.RenderComponent<Home>();
+        var cut = ctx.Render<Home>();
         cut.WaitForAssertion(() => { Assert.Contains("Layered Documents", cut.Markup, StringComparison.Ordinal); });
 
         var api = (FakeConfigApiClient)ctx.Services.GetRequiredService<IConfigApiClient>();
