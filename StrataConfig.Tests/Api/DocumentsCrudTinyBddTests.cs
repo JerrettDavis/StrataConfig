@@ -9,7 +9,7 @@ using ApiProgram = StrataConfig.ApiService.Program;
 namespace StrataConfig.Tests.Api;
 
 [Feature("Documents CRUD, clone, import/export, diff (TinyBDD)")]
-public sealed class DocumentsCrudTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
+public sealed partial class DocumentsCrudTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
 {
     private sealed record ApiContext(WebApplicationFactory<ApiProgram> Factory, HttpClient Client) : IDisposable
     {

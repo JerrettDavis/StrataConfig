@@ -6,7 +6,7 @@ using TinyBDD.Xunit;
 namespace StrataConfig.Tests.Core;
 
 [Feature("Rule engine tag and expression handling (TinyBDD)")]
-public sealed class RuleEngineTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
+public sealed partial class RuleEngineTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
 {
     private sealed record RuleContextState(RuleEngine Engine, JsonNode Document, IReadOnlyList<Rule> Rules, RuleContext Context);
 

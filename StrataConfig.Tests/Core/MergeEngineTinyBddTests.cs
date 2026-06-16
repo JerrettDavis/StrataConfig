@@ -6,7 +6,7 @@ using TinyBDD.Xunit;
 namespace StrataConfig.Tests.Core;
 
 [Feature("Merge engine layer precedence (TinyBDD)")]
-public sealed class MergeEngineTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
+public sealed partial class MergeEngineTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
 {
     private sealed record MergeContext(MergeEngine Engine, IReadOnlyList<JsonNode> Layers);
     private sealed record MergeResult(MergeEngine Engine, JsonNode Node);

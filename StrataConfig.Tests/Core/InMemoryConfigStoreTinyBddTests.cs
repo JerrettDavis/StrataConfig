@@ -6,7 +6,7 @@ using TinyBDD.Xunit;
 namespace StrataConfig.Tests.Core;
 
 [Feature("In-memory store layering and revision semantics (TinyBDD)")]
-public sealed class InMemoryConfigStoreTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
+public sealed partial class InMemoryConfigStoreTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
 {
     private sealed record StoreState(InMemoryConfigStore Store, ScopeContext Scope, StoreSnapshot Snapshot);
 

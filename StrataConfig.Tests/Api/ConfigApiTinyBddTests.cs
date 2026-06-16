@@ -12,7 +12,7 @@ using ApiProgram = StrataConfig.ApiService.Program;
 namespace StrataConfig.Tests.Api;
 
 [Feature("Config API surface (TinyBDD)")]
-public sealed class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
+public sealed partial class ConfigApiTinyBddTests(Xunit.Abstractions.ITestOutputHelper output) : TinyBddXunitBase(output)
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
