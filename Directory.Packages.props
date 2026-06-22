@@ -3,10 +3,10 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.4.3" />
-    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.4.3" />
-    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.4.3" />
-    <PackageVersion Include="Aspire.StackExchange.Redis.OutputCaching" Version="13.4.3" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.4.6" />
+    <PackageVersion Include="Aspire.StackExchange.Redis.OutputCaching" Version="13.4.6" />
     <PackageVersion Include="bunit" Version="2.7.2" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
@@ -15,9 +15,9 @@
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.7.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
     <PackageVersion Include="NJsonSchema" Version="11.6.1" />
-    <PackageVersion Include="PatternKit.Core" Version="0.147.2" />
-    <PackageVersion Include="TinyBDD" Version="0.19.23" />
-    <PackageVersion Include="TinyBDD.Xunit" Version="0.19.23" />
+    <PackageVersion Include="PatternKit.Core" Version="0.147.5" />
+    <PackageVersion Include="TinyBDD" Version="0.19.26" />
+    <PackageVersion Include="TinyBDD.Xunit" Version="0.19.26" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
