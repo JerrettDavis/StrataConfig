@@ -15,14 +15,14 @@
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.7.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
     <PackageVersion Include="NJsonSchema" Version="11.6.1" />
-    <PackageVersion Include="PatternKit.Core" Version="0.147.7" />
-    <PackageVersion Include="TinyBDD" Version="0.19.27" />
-    <PackageVersion Include="TinyBDD.Xunit" Version="0.19.27" />
+    <PackageVersion Include="PatternKit.Core" Version="0.147.10" />
+    <PackageVersion Include="TinyBDD" Version="0.19.28" />
+    <PackageVersion Include="TinyBDD.Xunit" Version="0.19.28" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.16.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.16.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="Microsoft.Playwright" Version="1.61.0" />
