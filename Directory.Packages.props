@@ -15,9 +15,9 @@
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="NJsonSchema" Version="11.6.1" />
-    <PackageVersion Include="PatternKit.Core" Version="0.147.12" />
-    <PackageVersion Include="TinyBDD" Version="0.19.29" />
-    <PackageVersion Include="TinyBDD.Xunit" Version="0.19.29" />
+    <PackageVersion Include="PatternKit.Core" Version="0.147.14" />
+    <PackageVersion Include="TinyBDD" Version="0.19.30" />
+    <PackageVersion Include="TinyBDD.Xunit" Version="0.19.30" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
